@@ -1,33 +1,42 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
+import Sidebar from '../components/Sidebar'
+import { MathText } from '../lib/math.jsx'
 import { buildQuestionList, fetchQuestionsForSession } from '../lib/questions'
 
-const PHASE = {
-  QUESTION: 'question',
-  ANSWER: 'answer',
+const PHASE = { QUESTION: 'q', ANSWER: 'a' }
+
+// ── Timer hook ──────────────────────────────────────────────────────────────
+function useTimer() {
+  const [seconds, setSeconds] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => setSeconds(s => s + 1), 1000)
+    return () => clearInterval(id)
+  }, [])
+  const mm = String(Math.floor(seconds / 60)).padStart(2, '0')
+  const ss = String(seconds % 60).padStart(2, '0')
+  return `${mm}:${ss}`
 }
 
 export default function Session({ config, onBack }) {
   const { topic, startExerciseIndex, skipEvery, skipOffset } = config
 
   const [questionList, setQuestionList] = useState([])
-  const [questions, setQuestions] = useState([])
-  const [index, setIndex] = useState(0)
-  const [phase, setPhase] = useState(PHASE.QUESTION)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const [questions, setQuestions]       = useState([])
+  const [index, setIndex]               = useState(0)
+  const [phase, setPhase]               = useState(PHASE.QUESTION)
+  const [loading, setLoading]           = useState(true)
+  const [error, setError]               = useState(null)
+  const timer                           = useTimer()
 
-  // Build question list and fetch all question data
+  // Fade animation key — changes on each new question
+  const [fadeKey, setFadeKey] = useState(0)
+
   useEffect(() => {
-    const exercisesFromStart = topic.exercises.slice(startExerciseIndex)
-    const list = buildQuestionList(exercisesFromStart, skipEvery, skipOffset)
+    const exFromStart = topic.exercises.slice(startExerciseIndex)
+    const list = buildQuestionList(exFromStart, skipEvery, skipOffset)
     setQuestionList(list)
-
     fetchQuestionsForSession(list)
-      .then(data => {
-        setQuestions(data)
-        setIndex(0)
-        setPhase(PHASE.QUESTION)
-      })
+      .then(data => { setQuestions(data); setIndex(0); setPhase(PHASE.QUESTION) })
       .catch(err => setError(err.message))
       .finally(() => setLoading(false))
   }, [topic, startExerciseIndex, skipEvery, skipOffset])
@@ -35,185 +44,280 @@ export default function Session({ config, onBack }) {
   const advance = useCallback(() => {
     if (phase === PHASE.QUESTION) {
       setPhase(PHASE.ANSWER)
-    } else {
-      if (index + 1 < questions.length) {
-        setIndex(i => i + 1)
-        setPhase(PHASE.QUESTION)
-      }
+    } else if (index + 1 < questions.length) {
+      setIndex(i => i + 1)
+      setPhase(PHASE.QUESTION)
+      setFadeKey(k => k + 1)
     }
   }, [phase, index, questions.length])
 
-  // Keyboard handler: Space to advance, Left/Right arrows to navigate, Escape to go back
   useEffect(() => {
-    function handleKey(e) {
-      if (e.code === 'Space') {
-        e.preventDefault()
-        advance()
-      } else if (e.code === 'ArrowRight' && phase === PHASE.ANSWER) {
+    function onKey(e) {
+      if (e.code === 'Space')     { e.preventDefault(); advance() }
+      else if (e.code === 'Enter') { e.preventDefault(); advance() }
+      else if (e.code === 'ArrowRight' && phase === PHASE.ANSWER) {
         e.preventDefault()
         if (index + 1 < questions.length) {
-          setIndex(i => i + 1)
-          setPhase(PHASE.QUESTION)
+          setIndex(i => i + 1); setPhase(PHASE.QUESTION); setFadeKey(k => k + 1)
         }
-      } else if (e.code === 'ArrowLeft') {
-        e.preventDefault()
-        if (index > 0) {
-          setIndex(i => i - 1)
-          setPhase(PHASE.QUESTION)
-        }
-      } else if (e.code === 'Escape') {
-        onBack()
       }
+      else if (e.code === 'ArrowLeft') {
+        e.preventDefault()
+        if (index > 0) { setIndex(i => i - 1); setPhase(PHASE.QUESTION); setFadeKey(k => k + 1) }
+      }
+      else if (e.code === 'Escape') onBack()
     }
-    window.addEventListener('keydown', handleKey)
-    return () => window.removeEventListener('keydown', handleKey)
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
   }, [advance, index, questions.length, phase, onBack])
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-950 text-gray-400">
-        Loading questions…
-      </div>
-    )
-  }
+  if (loading) return <LoadingScreen />
+  if (error)   return <ErrorScreen error={error} onBack={onBack} />
+  if (questions.length === 0) return <EmptyScreen onBack={onBack} />
 
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-950 text-white gap-4">
-        <p className="text-red-400">Error loading questions: {error}</p>
-        <button onClick={onBack} className="text-sm text-gray-500 underline">← Back</button>
-      </div>
-    )
-  }
-
-  if (questions.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-950 text-white gap-4">
-        <p className="text-gray-300 text-lg">No questions found for this selection.</p>
-        <p className="text-gray-600 text-sm">
-          The textbook may not be indexed yet for this topic.
-        </p>
-        <button onClick={onBack} className="text-sm text-gray-500 underline mt-2">← Back</button>
-      </div>
-    )
-  }
-
-  const isDone = phase === PHASE.ANSWER && index === questions.length - 1
-  const current = questions[index]
+  const current     = questions[index]
   const currentMeta = questionList[index]
+  const isDone      = phase === PHASE.ANSWER && index === questions.length - 1
+
+  // Exercise label like "SECTION 1A"  →  "EXERCISE 1A"
+  const exerciseLabel = currentMeta?.exercise ?? ''
+  const topicName     = topic.topic_name ?? topic.topic_code
 
   return (
     <div
-      className="min-h-screen bg-gray-950 text-white flex flex-col select-none"
+      className="flex h-screen"
+      style={{ background: '#0a0a0a' }}
       onClick={advance}
     >
-      {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
-        <button
-          onClick={e => { e.stopPropagation(); onBack() }}
-          className="text-sm text-gray-500 hover:text-gray-300 transition-colors"
+      <Sidebar activePage="session" />
+
+      <div className="flex-1 flex flex-col overflow-hidden">
+
+        {/* ── Header ── */}
+        <header
+          style={{ padding: '32px 48px 0' }}
+          className="flex items-start justify-between shrink-0"
         >
-          ← Back
-        </button>
-        <div className="text-sm text-gray-500">
-          {topic.topic_code} — {topic.topic_name}
-        </div>
-        <div className="text-sm text-gray-400 font-mono">
-          {index + 1} / {questions.length}
-        </div>
-      </div>
-
-      {/* Progress bar */}
-      <div className="h-1 bg-gray-800">
-        <div
-          className="h-full bg-indigo-500 transition-all duration-300"
-          style={{ width: `${((index + (phase === PHASE.ANSWER ? 1 : 0.5)) / questions.length) * 100}%` }}
-        />
-      </div>
-
-      {/* Main content */}
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 max-w-3xl mx-auto w-full">
-        {/* Exercise + question label */}
-        <div className="flex items-center gap-3 mb-8">
-          <span className="bg-indigo-900 text-indigo-300 text-sm font-mono px-3 py-1 rounded-full">
-            Exercise {currentMeta?.exercise}
-          </span>
-          <span className="bg-gray-800 text-gray-400 text-sm font-mono px-3 py-1 rounded-full">
-            Q{currentMeta?.number}
-          </span>
-        </div>
-
-        {/* Question */}
-        <div className="w-full bg-gray-900 rounded-2xl border border-gray-800 p-8 mb-6">
-          <p className="text-xs uppercase tracking-widest text-gray-600 mb-4">Question</p>
-          {current?.question_image ? (
-            <div className="space-y-4">
-              <p className="text-white text-lg leading-relaxed whitespace-pre-wrap">
-                {current.question_text}
-              </p>
-              <img
-                src={current.question_image}
-                alt="Question diagram"
-                className="max-w-full rounded-lg border border-gray-700"
-              />
-            </div>
-          ) : current?.question_text ? (
-            <p className="text-white text-lg leading-relaxed whitespace-pre-wrap">
-              {current.question_text}
+          <div>
+            <p style={{
+              color: '#555', fontSize: 11, letterSpacing: '0.15em',
+              textTransform: 'uppercase', marginBottom: 6,
+            }}>
+              Exercise {exerciseLabel} &nbsp;·&nbsp; Q{currentMeta?.number}
+              &nbsp;&nbsp;
+              <span style={{ color: '#333' }}>
+                {index + 1} / {questions.length}
+              </span>
             </p>
-          ) : (
-            <p className="text-gray-600 italic">Question content not indexed yet.</p>
-          )}
+            <h1 style={{ color: '#fff', fontSize: 26, fontWeight: 600, margin: 0, lineHeight: 1.2 }}>
+              {topicName}
+            </h1>
+          </div>
+
+          {/* Timer */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            background: '#141414', border: '1px solid #1e1e1e',
+            borderRadius: 8, padding: '6px 12px',
+          }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#7c3aed', display: 'block' }} />
+            <span style={{ color: '#ccc', fontSize: 13, fontFamily: 'monospace' }}>{timer}</span>
+          </div>
+        </header>
+
+        {/* ── Progress bar ── */}
+        <div style={{ height: 2, background: '#1a1a1a', margin: '16px 48px 0', borderRadius: 1 }}>
+          <div style={{
+            height: '100%', background: '#7c3aed', borderRadius: 1,
+            width: `${((index + (phase === PHASE.ANSWER ? 1 : 0.5)) / questions.length) * 100}%`,
+            transition: 'width 0.4s ease',
+          }} />
         </div>
 
-        {/* Answer (revealed after space) */}
-        {phase === PHASE.ANSWER && (
-          <div className="w-full bg-gray-900 rounded-2xl border border-emerald-800 p-8 mb-6 animate-in fade-in duration-200">
-            <p className="text-xs uppercase tracking-widest text-emerald-600 mb-4">Answer</p>
-            {current?.answer_image ? (
-              <div className="space-y-4">
-                <p className="text-emerald-300 text-lg leading-relaxed whitespace-pre-wrap">
-                  {current.answer_text}
-                </p>
+        {/* ── Main content ── */}
+        <main
+          key={fadeKey}
+          style={{ flex: 1, padding: '40px 48px', overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: 24 }}
+        >
+          {/* Question card */}
+          <div style={{
+            background: '#111111',
+            border: '1px solid #1e1e1e',
+            borderRadius: 16,
+            padding: '48px 64px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: 200,
+            flex: phase === PHASE.ANSWER ? '0 0 auto' : '1 1 auto',
+            transition: 'flex 0.3s ease',
+          }}>
+            {current?.question_image ? (
+              <div className="flex flex-col items-center gap-6">
+                <QuestionContent text={current.question_text} />
                 <img
-                  src={current.answer_image}
-                  alt="Answer diagram"
-                  className="max-w-full rounded-lg border border-gray-700"
+                  src={current.question_image}
+                  alt="Diagram"
+                  style={{ maxWidth: '100%', maxHeight: 300, borderRadius: 8 }}
                 />
               </div>
-            ) : current?.answer_text ? (
-              <p className="text-emerald-300 text-lg leading-relaxed whitespace-pre-wrap">
-                {current.answer_text}
-              </p>
             ) : (
-              <p className="text-gray-600 italic">Answer not indexed yet.</p>
+              <QuestionContent text={current?.question_text} />
             )}
           </div>
-        )}
 
-        {/* Hint / done */}
-        {isDone ? (
-          <div className="text-center">
-            <p className="text-gray-400 text-lg mb-4">All done! 🎉</p>
-            <button
-              onClick={e => { e.stopPropagation(); onBack() }}
-              className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 rounded-lg transition-colors"
-            >
-              Back to home
-            </button>
-          </div>
-        ) : (
-          <p className="text-gray-700 text-sm mt-2">
-            {phase === PHASE.QUESTION ? 'Press Space to reveal answer' : 'Press Space for next question'}
-          </p>
-        )}
+          {/* Answer card — slides in */}
+          {phase === PHASE.ANSWER && (
+            <div style={{
+              background: '#0e1510',
+              border: '1px solid #1a2e1a',
+              borderRadius: 16,
+              padding: '32px 64px',
+              flex: '1 1 auto',
+              overflow: 'auto',
+              animation: 'fadeSlideUp 0.25s ease',
+            }}>
+              <p style={{
+                color: '#4ade8044',
+                fontSize: 10, letterSpacing: '0.15em',
+                textTransform: 'uppercase', marginBottom: 16,
+              }}>
+                Answer
+              </p>
+              {current?.answer_image ? (
+                <div className="flex flex-col gap-4">
+                  <AnswerContent text={current.answer_text} />
+                  <img src={current.answer_image} alt="Answer diagram"
+                    style={{ maxWidth: '100%', borderRadius: 8 }} />
+                </div>
+              ) : (
+                <AnswerContent text={current?.answer_text} />
+              )}
+            </div>
+          )}
+        </main>
+
+        {/* ── Bottom command bar ── */}
+        <footer style={{
+          borderTop: '1px solid #1a1a1a',
+          padding: '14px 48px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 32,
+          shrink: 0,
+        }}>
+          <ShortcutHint kbd="SPACE"  label={phase === PHASE.QUESTION ? 'REVEAL ANSWER' : 'NEXT QUESTION'} active />
+          <Sep />
+          <ShortcutHint kbd="← →"   label="NAVIGATE" />
+          <Sep />
+          <ShortcutHint kbd="ESC"   label="HOME" />
+        </footer>
       </div>
 
-      {/* Bottom keyboard hint */}
-      <div className="px-6 py-4 border-t border-gray-800 flex justify-center gap-8 text-xs text-gray-700">
-        <span>← → navigate</span>
-        <span>Space — advance</span>
-        <span>Esc — home</span>
+      {/* Fade-slide animation */}
+      <style>{`
+        @keyframes fadeSlideUp {
+          from { opacity: 0; transform: translateY(12px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
+    </div>
+  )
+}
+
+// ── Sub-components ──────────────────────────────────────────────────────────
+
+function QuestionContent({ text }) {
+  if (!text) return (
+    <p style={{ color: '#333', fontStyle: 'italic', fontSize: 14 }}>
+      Question not indexed yet.
+    </p>
+  )
+  return (
+    <div style={{ textAlign: 'center', maxWidth: 700 }}>
+      <MathText
+        text={text}
+        className=""
+        style={{ color: '#fff', fontSize: 22, lineHeight: 1.7 }}
+      />
+    </div>
+  )
+}
+
+function AnswerContent({ text }) {
+  if (!text) return (
+    <p style={{ color: '#333', fontStyle: 'italic', fontSize: 14 }}>
+      Answer not indexed yet.
+    </p>
+  )
+  return (
+    <MathText
+      text={text}
+      style={{ color: '#86efac', fontSize: 17, lineHeight: 1.8, whiteSpace: 'pre-wrap' }}
+    />
+  )
+}
+
+function ShortcutHint({ kbd, label, active }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <kbd style={{
+        background: active ? '#1e1e1e' : '#141414',
+        border: `1px solid ${active ? '#333' : '#1e1e1e'}`,
+        borderRadius: 6, padding: '4px 10px',
+        color: active ? '#ccc' : '#333',
+        fontSize: 11, fontFamily: 'monospace', fontWeight: 600,
+        letterSpacing: '0.05em',
+      }}>
+        {kbd}
+      </kbd>
+      <span style={{ color: '#333', fontSize: 11, letterSpacing: '0.1em' }}>{label}</span>
+    </div>
+  )
+}
+
+function Sep() {
+  return <span style={{ color: '#1e1e1e', fontSize: 18 }}>+</span>
+}
+
+// ── Loading / Error / Empty states ──────────────────────────────────────────
+
+function LoadingScreen() {
+  return (
+    <div className="flex h-screen" style={{ background: '#0a0a0a' }}>
+      <Sidebar activePage="session" />
+      <div className="flex-1 flex items-center justify-center">
+        <p style={{ color: '#333', fontSize: 14 }}>Loading questions…</p>
+      </div>
+    </div>
+  )
+}
+
+function ErrorScreen({ error, onBack }) {
+  return (
+    <div className="flex h-screen" style={{ background: '#0a0a0a' }}>
+      <Sidebar activePage="session" />
+      <div className="flex-1 flex flex-col items-center justify-center gap-4">
+        <p style={{ color: '#ef4444', fontSize: 14 }}>{error}</p>
+        <button onClick={onBack} style={{ color: '#555', fontSize: 13, background: 'none', border: 'none', cursor: 'pointer' }}>
+          ← Back
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function EmptyScreen({ onBack }) {
+  return (
+    <div className="flex h-screen" style={{ background: '#0a0a0a' }}>
+      <Sidebar activePage="session" />
+      <div className="flex-1 flex flex-col items-center justify-center gap-4">
+        <p style={{ color: '#555', fontSize: 14 }}>No questions found for this selection.</p>
+        <p style={{ color: '#333', fontSize: 12 }}>Run the indexing script first to populate the database.</p>
+        <button onClick={onBack} style={{ color: '#555', fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', marginTop: 8 }}>
+          ← Back
+        </button>
       </div>
     </div>
   )

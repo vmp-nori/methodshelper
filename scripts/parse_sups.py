@@ -20,9 +20,8 @@ import tempfile
 from pathlib import Path
 
 # ── Config ──────────────────────────────────────────────────────────────────
-SUPABASE_URL     = "https://rrpfggsrqlhyezcuyqmb.supabase.co"
+SUPABASE_URL     = "https://bodwvpqtfhqmpzialpig.supabase.co"
 SUPABASE_KEY     = os.environ.get("SUPABASE_SERVICE_KEY", "")   # service-role key
-MM_SUBJECT_ID    = "c57050cd-1a8b-43e7-91aa-45d502cfbc21"
 STORAGE_BUCKET   = "methods"
 # ────────────────────────────────────────────────────────────────────────────
 
@@ -32,6 +31,13 @@ def get_supabase():
     if not SUPABASE_KEY:
         raise SystemExit("Set SUPABASE_SERVICE_KEY env var (service-role key from Supabase dashboard)")
     return create_client(SUPABASE_URL, SUPABASE_KEY)
+
+
+def get_subject_id(client, code: str) -> str:
+    result = client.table("subjects").select("id").eq("code", code).single().execute()
+    if not result.data:
+        raise SystemExit(f"Subject '{code}' not found in database.")
+    return result.data["id"]
 
 
 def download_docx(client, file_path: str) -> bytes:
@@ -129,10 +135,10 @@ def parse_docx(docx_bytes: bytes) -> list[dict]:
     return exercises
 
 
-def upload_sup_data(client, topic_code: str, topic_name: str, exercises: list[dict]):
+def upload_sup_data(client, subject_id: str, topic_code: str, topic_name: str, exercises: list[dict]):
     """Upsert SUP data into the sup_data table."""
     client.table("sup_data").upsert({
-        "subject_id":  MM_SUBJECT_ID,
+        "subject_id":  subject_id,
         "topic_code":  topic_code,
         "topic_name":  topic_name,
         "exercises":   json.dumps(exercises),
@@ -141,13 +147,14 @@ def upload_sup_data(client, topic_code: str, topic_name: str, exercises: list[di
 
 
 def main():
-    client = get_supabase()
+    client     = get_supabase()
+    subject_id = get_subject_id(client, "MM12")
 
     # Fetch all MM SUP resource records
     result = (
         client.table("resources")
         .select("id, name, file_path, topic")
-        .eq("subject_id", MM_SUBJECT_ID)
+        .eq("subject_id", subject_id)
         .eq("resource_type", "unit_outline")
         .order("topic")
         .execute()
@@ -176,7 +183,7 @@ def main():
             for ex in exercises:
                 print(f"    Exercise {ex['exercise']}: {len(ex['questions'])} questions → {ex['questions']}")
 
-            upload_sup_data(client, topic_code, topic_name, exercises)
+            upload_sup_data(client, subject_id, topic_code, topic_name, exercises)
 
         except Exception as e:
             print(f"  ✗ Error: {e}")

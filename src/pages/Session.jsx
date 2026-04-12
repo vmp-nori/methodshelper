@@ -5,6 +5,11 @@ import { buildQuestionList, fetchQuestionsForSession } from '../lib/questions'
 
 const PHASE = { QUESTION: 'q', ANSWER: 'a' }
 
+function getParts(question) {
+  if (!question?.parts || Object.keys(question.parts).length === 0) return []
+  return Object.keys(question.parts).sort().map(k => ({ label: k, ...question.parts[k] }))
+}
+
 // ── Timer hook ──────────────────────────────────────────────────────────────
 function useTimer() {
   const [seconds, setSeconds] = useState(0)
@@ -24,6 +29,7 @@ export default function Session({ config, onBack }) {
   const [questions, setQuestions]       = useState([])
   const [index, setIndex]               = useState(0)
   const [phase, setPhase]               = useState(PHASE.QUESTION)
+  const [subPartIndex, setSubPartIndex] = useState(0)
   const [loading, setLoading]           = useState(true)
   const [error, setError]               = useState(null)
   const timer                           = useTimer()
@@ -36,40 +42,52 @@ export default function Session({ config, onBack }) {
     const list = buildQuestionList(exFromStart, skipEvery, skipOffset)
     setQuestionList(list)
     fetchQuestionsForSession(list, subjectId)
-      .then(data => { setQuestions(data); setIndex(0); setPhase(PHASE.QUESTION) })
+      .then(data => { setQuestions(data); setIndex(0); setPhase(PHASE.QUESTION); setSubPartIndex(0) })
       .catch(err => setError(err.message))
       .finally(() => setLoading(false))
   }, [topic, startExerciseIndex, skipEvery, skipOffset])
 
   const advance = useCallback(() => {
+    const parts = getParts(questions[index])
+    const hasParts = parts.length > 0
     if (phase === PHASE.QUESTION) {
       setPhase(PHASE.ANSWER)
+    } else if (hasParts && subPartIndex + 1 < parts.length) {
+      setSubPartIndex(i => i + 1)
+      setPhase(PHASE.QUESTION)
     } else if (index + 1 < questions.length) {
       setIndex(i => i + 1)
+      setSubPartIndex(0)
       setPhase(PHASE.QUESTION)
       setFadeKey(k => k + 1)
     }
-  }, [phase, index, questions.length])
+  }, [phase, index, subPartIndex, questions])
 
   useEffect(() => {
     function onKey(e) {
-      if (e.code === 'Space')     { e.preventDefault(); advance() }
-      else if (e.code === 'Enter') { e.preventDefault(); advance() }
-      else if (e.code === 'ArrowRight' && phase === PHASE.ANSWER) {
+      if (e.code === 'Space' || e.code === 'Enter') {
+        e.preventDefault(); advance()
+      } else if (e.code === 'ArrowRight') {
         e.preventDefault()
-        if (index + 1 < questions.length) {
-          setIndex(i => i + 1); setPhase(PHASE.QUESTION); setFadeKey(k => k + 1)
+        const parts = getParts(questions[index])
+        if (parts.length > 0 && subPartIndex + 1 < parts.length) {
+          setSubPartIndex(i => i + 1); setPhase(PHASE.QUESTION)
+        } else if (index + 1 < questions.length) {
+          setIndex(i => i + 1); setSubPartIndex(0); setPhase(PHASE.QUESTION); setFadeKey(k => k + 1)
         }
-      }
-      else if (e.code === 'ArrowLeft') {
+      } else if (e.code === 'ArrowLeft') {
         e.preventDefault()
-        if (index > 0) { setIndex(i => i - 1); setPhase(PHASE.QUESTION); setFadeKey(k => k + 1) }
-      }
-      else if (e.code === 'Escape') onBack()
+        const parts = getParts(questions[index])
+        if (parts.length > 0 && subPartIndex > 0) {
+          setSubPartIndex(i => i - 1); setPhase(PHASE.QUESTION)
+        } else if (index > 0) {
+          setIndex(i => i - 1); setSubPartIndex(0); setPhase(PHASE.QUESTION); setFadeKey(k => k + 1)
+        }
+      } else if (e.code === 'Escape') onBack()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [advance, index, questions.length, phase, onBack])
+  }, [advance, index, subPartIndex, questions, phase, onBack])
 
   if (loading) return <LoadingScreen />
   if (error)   return <ErrorScreen error={error} onBack={onBack} />
@@ -78,6 +96,10 @@ export default function Session({ config, onBack }) {
   const current     = questions[index]
   const currentMeta = questionList[index]
   const isDone      = phase === PHASE.ANSWER && index === questions.length - 1
+
+  const currentParts  = getParts(current)
+  const hasParts      = currentParts.length > 0
+  const activePart    = hasParts ? currentParts[subPartIndex] : null
 
   // Exercise label like "SECTION 1A"  →  "EXERCISE 1A"
   const exerciseLabel = currentMeta?.exercise ?? ''
@@ -104,6 +126,9 @@ export default function Session({ config, onBack }) {
               textTransform: 'uppercase', marginBottom: 6,
             }}>
               Exercise {exerciseLabel} &nbsp;·&nbsp; Q{currentMeta?.number}
+              {hasParts && (
+                <span style={{ color: '#7c3aed' }}>&nbsp;{activePart?.label})</span>
+              )}
               &nbsp;&nbsp;
               <span style={{ color: '#333' }}>
                 {index + 1} / {questions.length}
@@ -146,23 +171,48 @@ export default function Session({ config, onBack }) {
             borderRadius: 16,
             padding: '48px 64px',
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
+            gap: 20,
             minHeight: 200,
             flex: phase === PHASE.ANSWER ? '0 0 auto' : '1 1 auto',
             transition: 'flex 0.3s ease',
           }}>
-            {current?.question_image ? (
-              <div className="flex flex-col items-center gap-6">
-                <QuestionContent text={current.question_text} />
-                <img
-                  src={current.question_image}
-                  alt="Diagram"
-                  style={{ maxWidth: '100%', maxHeight: 300, borderRadius: 8 }}
-                />
+            {/* Stem (always shown) */}
+            {current?.question_text && (
+              <QuestionContent text={current.question_text} muted={hasParts} />
+            )}
+            {/* Active sub-part */}
+            {hasParts && activePart && (
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, maxWidth: 700 }}>
+                <span style={{ color: '#7c3aed', fontSize: 18, fontWeight: 600, minWidth: 24 }}>
+                  {activePart.label})
+                </span>
+                <QuestionContent text={activePart.text} />
               </div>
-            ) : (
-              <QuestionContent text={current?.question_text} />
+            )}
+            {/* Part diagram */}
+            {hasParts && activePart?.image && (
+              <img src={activePart.image} alt="Diagram"
+                style={{ maxWidth: '100%', maxHeight: 300, borderRadius: 8 }} />
+            )}
+            {/* Non-parts diagram */}
+            {!hasParts && current?.question_image && (
+              <img src={current.question_image} alt="Diagram"
+                style={{ maxWidth: '100%', maxHeight: 300, borderRadius: 8 }} />
+            )}
+            {/* Sub-part progress dots */}
+            {hasParts && currentParts.length > 1 && (
+              <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                {currentParts.map((p, i) => (
+                  <span key={p.label} style={{
+                    width: 6, height: 6, borderRadius: '50%',
+                    background: i === subPartIndex ? '#7c3aed' : '#2a2a2a',
+                    transition: 'background 0.2s',
+                  }} />
+                ))}
+              </div>
             )}
           </div>
 
@@ -182,9 +232,17 @@ export default function Session({ config, onBack }) {
                 fontSize: 10, letterSpacing: '0.15em',
                 textTransform: 'uppercase', marginBottom: 16,
               }}>
-                Answer
+                {hasParts ? `Answer — ${activePart?.label})` : 'Answer'}
               </p>
-              {current?.answer_image ? (
+              {hasParts && activePart ? (
+                <div className="flex flex-col gap-4">
+                  <AnswerContent text={activePart.answer} />
+                  {activePart.answer_image && (
+                    <img src={activePart.answer_image} alt="Answer diagram"
+                      style={{ maxWidth: '100%', borderRadius: 8 }} />
+                  )}
+                </div>
+              ) : current?.answer_image ? (
                 <div className="flex flex-col gap-4">
                   <AnswerContent text={current.answer_text} />
                   <img src={current.answer_image} alt="Answer diagram"
@@ -228,7 +286,7 @@ export default function Session({ config, onBack }) {
 
 // ── Sub-components ──────────────────────────────────────────────────────────
 
-function QuestionContent({ text }) {
+function QuestionContent({ text, muted = false }) {
   if (!text) return (
     <p style={{ color: '#333', fontStyle: 'italic', fontSize: 14 }}>
       Question not indexed yet.
@@ -239,7 +297,7 @@ function QuestionContent({ text }) {
       <MathText
         text={text}
         className=""
-        style={{ color: '#fff', fontSize: 22, lineHeight: 1.7 }}
+        style={{ color: muted ? '#666' : '#fff', fontSize: muted ? 15 : 22, lineHeight: 1.7 }}
       />
     </div>
   )

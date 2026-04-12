@@ -6,12 +6,22 @@ export default function TopicSelect({ subject, onSelect, onBack }) {
   const [hovered, setHovered] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState(null)
-  const activeItemRef = useRef(null)
+  const activeItemRef  = useRef(null)
+  const sidebarScrollRef = useRef(null)
+  const scrollTimerRef = useRef(null)
 
   useEffect(() => {
-    if (activeItemRef.current) {
-      activeItemRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
-    }
+    if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current)
+    if (!activeItemRef.current) return
+
+    // Single scroll fired after the grid-template-rows animation (250ms).
+    // At that point the item has its full expanded height, so scrollIntoView
+    // correctly accounts for it — no double-scroll stutter.
+    scrollTimerRef.current = setTimeout(() => {
+      activeItemRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    }, 260)
+
+    return () => clearTimeout(scrollTimerRef.current)
   }, [hovered])
 
   useEffect(() => {

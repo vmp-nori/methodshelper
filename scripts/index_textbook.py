@@ -3,15 +3,16 @@ index_textbook.py — Indexes a VCE Math textbook PDF into the SUPsmasher Supaba
 
 For each exercise found in the textbook:
   1. Renders the relevant pages to images (via PyMuPDF)
-  2. Sends them to a local Gemma model via Ollama to extract questions
+  2. Sends them to a local Gemma model via Ollama to extract questions + sub-parts
   3. Does the same for the answers section at the back
-  4. Uploads everything to the textbook_questions table in Supabase
+  4. Crops any diagrams and uploads them to Supabase Storage (bucket: textbook_images)
+  5. Uploads everything to the textbook_questions table in Supabase
 
 Requirements:
     pip install supabase pymupdf requests tqdm
 
     Ollama must be running locally with a multimodal model pulled:
-        ollama pull gemma3          (or whichever vision model you use)
+        ollama pull gemma4-26b      (or whichever vision model you use)
 
 Usage:
     set SUPABASE_SERVICE_KEY=your_service_role_key
@@ -35,11 +36,12 @@ import argparse
 import requests
 
 # ── Config ──────────────────────────────────────────────────────────────────
-SUPABASE_URL  = "https://bodwvpqtfhqmpzialpig.supabase.co"
-SUPABASE_KEY  = os.environ.get("SUPABASE_SERVICE_KEY", "")
-OLLAMA_URL    = os.environ.get("OLLAMA_URL", "http://localhost:11434")
-OLLAMA_MODEL  = os.environ.get("OLLAMA_MODEL", "gemma3")
-RENDER_DPI    = 150
+SUPABASE_URL   = "https://bodwvpqtfhqmpzialpig.supabase.co"
+SUPABASE_KEY   = os.environ.get("SUPABASE_SERVICE_KEY", "")
+OLLAMA_URL     = os.environ.get("OLLAMA_URL", "http://localhost:11434")
+OLLAMA_MODEL   = os.environ.get("OLLAMA_MODEL", "gemma4-26b")
+RENDER_DPI     = 150
+STORAGE_BUCKET = "textbook_images"
 
 SUBJECT_CODES = {
     "MM12": "Mathematical Methods 1&2",
@@ -56,14 +58,33 @@ This image shows one or more pages from an exercise section.
 Extract EVERY numbered question visible on this page.
 For each question return:
 - question_number: the integer question number (e.g. 1, 2, 3)
-- question_text: the full text of the question, including sub-parts (a, b, c).
-  Use newlines between sub-parts. Preserve math notation as text (e.g. x^2, sqrt(x)).
-- has_diagram: true if the question includes a graph or diagram.
+- main_text: the overall question stem (e.g. "Factorise each of the following:").
+  If there is no stem and the question is just a list of parts, use "".
+- parts: an object mapping sub-part labels (a, b, c, ...) to their content.
+  Each part must have:
+    "text": the sub-part text (math as plain text, e.g. "x^2 - 5x + 6")
+    "bbox": [y1, x1, y2, x2] bounding box in POINTS (0,0 = top-left of the page)
+            for any diagram/graph associated with this part. null if no diagram.
+  If the question has no sub-parts, use an empty object {}.
+- has_diagram: true if ANY part of the question contains a graph or diagram.
 
 Return ONLY a JSON array (no markdown fences), like:
 [
-  {"question_number": 1, "question_text": "Solve x^2 - 5x + 6 = 0", "has_diagram": false},
-  {"question_number": 2, "question_text": "...", "has_diagram": false}
+  {
+    "question_number": 1,
+    "main_text": "Factorise each of the following:",
+    "parts": {
+      "a": {"text": "x^2 - 5x + 6", "bbox": null},
+      "b": {"text": "2x^2 + 3x - 2", "bbox": null}
+    },
+    "has_diagram": false
+  },
+  {
+    "question_number": 2,
+    "main_text": "Solve for x:",
+    "parts": {},
+    "has_diagram": false
+  }
 ]
 
 Include ONLY questions visible on this exact page. If none are visible, return [].
@@ -75,12 +96,24 @@ This image shows an answers page for Exercise {exercise}.
 Extract every answer visible for Exercise {exercise}.
 For each answer return:
 - question_number: integer
-- answer_text: full answer. For multi-part questions include all parts, e.g. "a) 3  b) -2".
+- parts: an object mapping sub-part labels (a, b, c, ...) to their answers.
+  Each part must have:
+    "answer": the answer text (math as plain text)
+    "bbox": [y1, x1, y2, x2] bounding box in POINTS for any diagram in the answer.
+             null if no diagram.
+  If the question has no sub-parts, use {"_": {"answer": "<full answer text>", "bbox": null}}.
 - has_diagram: true if the answer contains a graph or figure.
 
 Return ONLY a JSON array (no markdown fences), like:
 [
-  {"question_number": 1, "answer_text": "x = 2 or x = 3", "has_diagram": false}
+  {
+    "question_number": 1,
+    "parts": {
+      "a": {"answer": "x = 2 or x = 3", "bbox": null},
+      "b": {"answer": "x = -2 or x = 1/2", "bbox": null}
+    },
+    "has_diagram": false
+  }
 ]
 
 If no answers for Exercise {exercise} are visible on this page, return [].
@@ -96,6 +129,31 @@ def page_to_base64(pdf_doc, page_num: int) -> str:
     return base64.b64encode(pix.tobytes("png")).decode()
 
 
+def crop_and_upload(supabase, pdf_doc, page_num: int, bbox: list, path: str) -> str | None:
+    """
+    Crop a region from a PDF page and upload it to Supabase Storage.
+    bbox: [y1, x1, y2, x2] in PDF points.
+    Returns the public URL, or None on failure.
+    """
+    try:
+        import fitz
+        page = pdf_doc[page_num]
+        # fitz.Rect is (x0, y0, x1, y1)
+        y1, x1, y2, x2 = bbox
+        rect = fitz.Rect(x1, y1, x2, y2)
+        mat  = fitz.Matrix(RENDER_DPI / 72, RENDER_DPI / 72)
+        pix  = page.get_pixmap(matrix=mat, clip=rect)
+        img_bytes = pix.tobytes("png")
+        supabase.storage.from_(STORAGE_BUCKET).upload(
+            path, img_bytes, {"content-type": "image/png", "upsert": "true"}
+        )
+        public_url = supabase.storage.from_(STORAGE_BUCKET).get_public_url(path)
+        return public_url
+    except Exception as e:
+        print(f"    [warn] Failed to crop/upload diagram: {e}")
+        return None
+
+
 def call_ollama_vision(prompt: str, image_b64: str) -> str:
     """Send a page image to the local Ollama model and return the response text."""
     payload = {
@@ -107,7 +165,7 @@ def call_ollama_vision(prompt: str, image_b64: str) -> str:
         }],
         "stream": False,
     }
-    resp = requests.post(f"{OLLAMA_URL}/api/chat", json=payload, timeout=120)
+    resp = requests.post(f"{OLLAMA_URL}/api/chat", json=payload, timeout=180)
     resp.raise_for_status()
     return resp.json()["message"]["content"].strip()
 
@@ -194,6 +252,7 @@ def extract_questions_from_pages(pdf_doc, pages: list) -> list:
         for item in parse_json_response(response):
             qn = item.get("question_number")
             if qn and qn not in all_questions:
+                item["_page_num"] = page_num
                 all_questions[qn] = item
     return list(all_questions.values())
 
@@ -207,6 +266,7 @@ def extract_answers_from_pages(pdf_doc, exercise: str, pages: list) -> list:
         for item in parse_json_response(response):
             qn = item.get("question_number")
             if qn and qn not in all_answers:
+                item["_page_num"] = page_num
                 all_answers[qn] = item
     return list(all_answers.values())
 
@@ -229,20 +289,65 @@ def get_already_indexed(supabase, subject_id: str, exercise: str) -> set:
     return {row["question_number"] for row in result.data}
 
 
-def upload_questions(supabase, subject_id: str, exercise: str, questions: list, answers: dict):
+def upload_questions(supabase, pdf_doc, subject_id: str, exercise: str, questions: list, answers: dict):
+    """
+    Merge questions + answers by sub-part, crop any diagrams, then upsert to DB.
+    """
     rows = []
     for q in questions:
-        qn  = q.get("question_number")
-        ans = answers.get(qn, {})
+        qn       = q.get("question_number")
+        q_page   = q.get("_page_num")
+        ans_data = answers.get(qn, {})
+        a_page   = ans_data.get("_page_num")
+
+        q_parts = q.get("parts", {})
+        a_parts = ans_data.get("parts", {})
+
+        # Merge question parts with answer parts
+        merged_parts = {}
+        all_labels = sorted(set(list(q_parts.keys()) + list(a_parts.keys())))
+
+        for label in all_labels:
+            qp = q_parts.get(label, {})
+            ap = a_parts.get(label, {})
+
+            part_entry = {
+                "text":   qp.get("text", ""),
+                "answer": ap.get("answer", ""),
+            }
+
+            # Crop question diagram if bbox provided
+            if q_page is not None and qp.get("bbox"):
+                path = f"{subject_id}/{exercise}/q{qn}_{label}_q.png"
+                url  = crop_and_upload(supabase, pdf_doc, q_page, qp["bbox"], path)
+                if url:
+                    part_entry["image"] = url
+
+            # Crop answer diagram if bbox provided
+            if a_page is not None and ap.get("bbox"):
+                path = f"{subject_id}/{exercise}/q{qn}_{label}_a.png"
+                url  = crop_and_upload(supabase, pdf_doc, a_page, ap["bbox"], path)
+                if url:
+                    part_entry["answer_image"] = url
+
+            merged_parts[label] = part_entry
+
+        # Handle no-parts answers stored under "_" sentinel
+        answer_text = ""
+        if not q_parts and "_" in a_parts:
+            answer_text = a_parts["_"].get("answer", "")
+
         rows.append({
             "subject_id":      subject_id,
             "exercise":        exercise,
             "question_number": qn,
-            "question_text":   q.get("question_text", ""),
+            "question_text":   q.get("main_text", ""),
             "question_image":  None,
-            "answer_text":     ans.get("answer_text", ""),
+            "answer_text":     answer_text,
             "answer_image":    None,
+            "parts":           merged_parts,
         })
+
     if rows:
         supabase.table("textbook_questions").upsert(
             rows, on_conflict="subject_id,exercise,question_number"
@@ -322,7 +427,7 @@ def main():
             answers_by_num = {a["question_number"]: a for a in raw_answers}
             print(f"[{exercise}] Found {len(answers_by_num)} answers")
 
-        upload_questions(supabase, subject_id, exercise, new_questions, answers_by_num)
+        upload_questions(supabase, pdf_doc, subject_id, exercise, new_questions, answers_by_num)
         print(f"[{exercise}] ✓ Uploaded {len(new_questions)} questions\n")
 
     print("Indexing complete.")

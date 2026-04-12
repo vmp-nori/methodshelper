@@ -17,10 +17,11 @@ CREATE TABLE IF NOT EXISTS public.textbook_questions (
   subject_id      UUID NOT NULL REFERENCES public.subjects(id),
   exercise        TEXT NOT NULL,    -- e.g. "1A"
   question_number INTEGER NOT NULL, -- e.g. 3
-  question_text   TEXT,             -- extracted question text
-  question_image  TEXT,             -- base64 data URL if diagram present
-  answer_text     TEXT,             -- extracted answer text
-  answer_image    TEXT,             -- base64 data URL if diagram in answer
+  question_text   TEXT,             -- extracted question text/stem
+  question_image  TEXT,             -- URL/data for question diagram
+  answer_text     TEXT,             -- flat answer text (if no parts)
+  answer_image    TEXT,             -- URL/data for answer diagram
+  parts           JSONB,            -- structured sub-parts: { "a": { "text": "...", "answer": "...", "image": "..." }, ... }
   created_at      TIMESTAMPTZ DEFAULT now(),
   UNIQUE (subject_id, exercise, question_number)
 );

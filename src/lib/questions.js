@@ -1,16 +1,26 @@
 import { supabase } from './supabase'
 
-// MM subject ID in the database
-const MM_SUBJECT_ID = 'c57050cd-1a8b-43e7-91aa-45d502cfbc21'
+/**
+ * Fetch all subjects
+ */
+export async function fetchSubjects() {
+  const { data, error } = await supabase
+    .from('subjects')
+    .select('id, code, name')
+    .order('code')
+
+  if (error) throw error
+  return data
+}
 
 /**
  * Fetch all available topics (from SUP data)
  */
-export async function fetchTopics() {
+export async function fetchTopics(subjectId) {
   const { data, error } = await supabase
     .from('sup_data')
     .select('topic_code, topic_name, exercises')
-    .eq('subject_id', MM_SUBJECT_ID)
+    .eq('subject_id', subjectId)
     .order('topic_code')
 
   if (error) throw error
@@ -21,11 +31,11 @@ export async function fetchTopics() {
  * Fetch SUP data for a specific topic
  * Returns exercises array: [{ exercise: "1A", questions: [1,3,5,7,9] }, ...]
  */
-export async function fetchSupData(topicCode) {
+export async function fetchSupData(topicCode, subjectId) {
   const { data, error } = await supabase
     .from('sup_data')
     .select('topic_code, topic_name, exercises')
-    .eq('subject_id', MM_SUBJECT_ID)
+    .eq('subject_id', subjectId)
     .eq('topic_code', topicCode)
     .single()
 
@@ -36,11 +46,11 @@ export async function fetchSupData(topicCode) {
 /**
  * Fetch a specific question from the textbook index
  */
-export async function fetchQuestion(exercise, questionNumber) {
+export async function fetchQuestion(exercise, questionNumber, subjectId) {
   const { data, error } = await supabase
     .from('textbook_questions')
     .select('*')
-    .eq('subject_id', MM_SUBJECT_ID)
+    .eq('subject_id', subjectId)
     .eq('exercise', exercise)
     .eq('question_number', questionNumber)
     .single()
@@ -53,7 +63,7 @@ export async function fetchQuestion(exercise, questionNumber) {
  * Fetch all questions for a list of exercise+question pairs
  * questionsToFetch: [{ exercise: "1A", number: 1 }, ...]
  */
-export async function fetchQuestionsForSession(questionsToFetch) {
+export async function fetchQuestionsForSession(questionsToFetch, subjectId) {
   const results = []
   // Batch by exercise to minimise queries
   const byExercise = {}
@@ -66,7 +76,7 @@ export async function fetchQuestionsForSession(questionsToFetch) {
     const { data, error } = await supabase
       .from('textbook_questions')
       .select('*')
-      .eq('subject_id', MM_SUBJECT_ID)
+      .eq('subject_id', subjectId)
       .eq('exercise', exercise)
       .in('question_number', numbers)
       .order('question_number')

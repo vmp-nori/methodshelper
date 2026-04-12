@@ -15,6 +15,12 @@ dist-ssr
 .env.*
 !.env.example
 
+# Local/sensitive directories
+.claude/
+11METHODS/
+scripts/__pycache__/
+*.csv
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

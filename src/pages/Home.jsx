@@ -1,99 +1,59 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { ChevronRight } from 'lucide-react'
 import Sidebar from '../components/Sidebar'
-import { fetchTopics } from '../lib/questions'
 
 const SKIP_OPTIONS = [
-  { label: 'All questions',             skipEvery: 1, skipOffset: 0 },
+  { label: 'All questions',              skipEvery: 1, skipOffset: 0 },
   { label: 'Every other  (Q1, Q3, Q5…)', skipEvery: 2, skipOffset: 0 },
   { label: 'Every third  (Q1, Q4, Q7…)', skipEvery: 3, skipOffset: 0 },
   { label: 'Even only    (Q2, Q4, Q6…)', skipEvery: 2, skipOffset: 1 },
 ]
 
-export default function Home({ onStart }) {
-  const [topics, setTopics]               = useState([])
-  const [selectedTopic, setSelectedTopic] = useState(null)
-  const [skipOption, setSkipOption]       = useState(0)
+export default function Home({ subject, topic, onStart, onBack }) {
+  const [skipOption, setSkipOption]     = useState(0)
   const [startExercise, setStartExercise] = useState(0)
-  const [loading, setLoading]             = useState(true)
-  const [error, setError]                 = useState(null)
-
-  useEffect(() => {
-    fetchTopics()
-      .then(data => {
-        setTopics(data)
-        if (data.length > 0) setSelectedTopic(data[0])
-      })
-      .catch(err => setError(err.message))
-      .finally(() => setLoading(false))
-  }, [])
-
-  function handleTopicChange(code) {
-    const t = topics.find(t => t.topic_code === code)
-    setSelectedTopic(t)
-    setStartExercise(0)
-  }
 
   function handleStart() {
-    if (!selectedTopic) return
     const skip = SKIP_OPTIONS[skipOption]
-    onStart({ topic: selectedTopic, startExerciseIndex: startExercise, ...skip })
+    onStart({ topic, startExerciseIndex: startExercise, subjectId: subject.id, ...skip })
   }
 
   return (
     <div className="flex h-screen" style={{ background: '#0a0a0a' }}>
       <Sidebar activePage="session" />
 
-      <main className="flex-1 overflow-y-auto flex flex-col items-center justify-center px-12 py-10">
+      <main style={{
+        flex: 1, overflowY: 'auto',
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        padding: '48px 64px',
+      }}>
         {/* Title */}
-        <div className="w-full max-w-xl mb-10">
-          <p style={{ color: '#555', fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 6 }}>
-            Methods 1 &amp; 2
-          </p>
-          <h1 style={{ color: '#fff', fontSize: 28, fontWeight: 600, margin: 0 }}>
+        <div style={{ width: '100%', maxWidth: 600, marginBottom: 40 }}>
+          <button
+            onClick={onBack}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: '#444', fontSize: 11, letterSpacing: '0.15em',
+              textTransform: 'uppercase', marginBottom: 6,
+              padding: 0, display: 'flex', alignItems: 'center', gap: 6,
+              transition: 'color 0.15s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.color = '#888'}
+            onMouseLeave={e => e.currentTarget.style.color = '#444'}
+          >
+            ← {topic.topic_name}
+          </button>
+          <h1 style={{ color: '#fff', fontSize: 34, fontWeight: 600, margin: 0, letterSpacing: '-0.02em' }}>
             New session
           </h1>
         </div>
 
         {/* Form */}
-        <div className="w-full max-w-xl flex flex-col gap-6">
-
-          {/* Topic */}
-          <Field label="Topic">
-            {loading ? (
-              <p style={{ color: '#444', fontSize: 14 }}>Loading…</p>
-            ) : error ? (
-              <p style={{ color: '#ef4444', fontSize: 13 }}>{error}</p>
-            ) : (
-              <div className="flex flex-col gap-1 max-h-52 overflow-y-auto">
-                {topics.map(t => (
-                  <button
-                    key={t.topic_code}
-                    onClick={() => handleTopicChange(t.topic_code)}
-                    style={{
-                      background: selectedTopic?.topic_code === t.topic_code ? '#1a1330' : '#111',
-                      border: `1px solid ${selectedTopic?.topic_code === t.topic_code ? '#7c3aed55' : '#1e1e1e'}`,
-                      color: selectedTopic?.topic_code === t.topic_code ? '#a78bfa' : '#888',
-                      borderRadius: 8,
-                      padding: '10px 14px',
-                      textAlign: 'left',
-                      cursor: 'pointer',
-                      fontSize: 13,
-                      transition: 'all 0.1s',
-                      display: 'flex',
-                      gap: 12,
-                    }}
-                  >
-                    <span style={{ fontFamily: 'monospace', opacity: 0.6 }}>{t.topic_code}</span>
-                    <span>{t.topic_name}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </Field>
+        <div style={{ width: '100%', maxWidth: 600, display: 'flex', flexDirection: 'column', gap: 22 }}>
 
           {/* Start exercise */}
-          {selectedTopic?.exercises?.length > 0 && (
+          {topic.exercises?.length > 0 && (
             <Field label="Start from exercise">
               <select
                 value={startExercise}
@@ -104,7 +64,7 @@ export default function Home({ onStart }) {
                   outline: 'none', cursor: 'pointer',
                 }}
               >
-                {selectedTopic.exercises.map((ex, i) => (
+                {topic.exercises.map((ex, i) => (
                   <option key={ex.exercise} value={i}>
                     Exercise {ex.exercise} — {ex.questions.length} questions
                   </option>
@@ -137,7 +97,7 @@ export default function Home({ onStart }) {
           {/* Start button */}
           <button
             onClick={handleStart}
-            disabled={!selectedTopic || (selectedTopic?.exercises?.length === 0)}
+            disabled={!topic.exercises?.length}
             style={{
               background: '#7c3aed',
               color: '#fff',
@@ -152,7 +112,7 @@ export default function Home({ onStart }) {
               alignItems: 'center',
               justifyContent: 'center',
               gap: 8,
-              opacity: (!selectedTopic || selectedTopic?.exercises?.length === 0) ? 0.4 : 1,
+              opacity: topic.exercises?.length ? 1 : 0.4,
               transition: 'opacity 0.15s',
             }}
           >
@@ -168,8 +128,8 @@ function Field({ label, children }) {
   return (
     <div>
       <p style={{
-        color: '#444', fontSize: 10, letterSpacing: '0.15em',
-        textTransform: 'uppercase', marginBottom: 8,
+        color: '#444', fontSize: 11, letterSpacing: '0.15em',
+        textTransform: 'uppercase', marginBottom: 10,
       }}>
         {label}
       </p>

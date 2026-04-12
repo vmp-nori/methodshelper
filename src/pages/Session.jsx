@@ -18,7 +18,7 @@ function useTimer() {
 }
 
 export default function Session({ config, onBack }) {
-  const { topic, startExerciseIndex, skipEvery, skipOffset } = config
+  const { topic, startExerciseIndex, skipEvery, skipOffset, subjectId } = config
 
   const [questionList, setQuestionList] = useState([])
   const [questions, setQuestions]       = useState([])
@@ -35,7 +35,7 @@ export default function Session({ config, onBack }) {
     const exFromStart = topic.exercises.slice(startExerciseIndex)
     const list = buildQuestionList(exFromStart, skipEvery, skipOffset)
     setQuestionList(list)
-    fetchQuestionsForSession(list)
+    fetchQuestionsForSession(list, subjectId)
       .then(data => { setQuestions(data); setIndex(0); setPhase(PHASE.QUESTION) })
       .catch(err => setError(err.message))
       .finally(() => setLoading(false))

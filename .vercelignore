@@ -1,0 +1,8 @@
+node_modules
+dist
+.claude
+11METHODS
+scripts
+*.pdf
+*.csv
+*.py

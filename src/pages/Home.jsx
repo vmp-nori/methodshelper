@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { fetchSubjects, fetchSupData } from '../lib/questions'
+import { useIsMobile } from '../lib/hooks'
 
 function ExerciseDropdown({ exercises, selectedIndex, onSelect }) {
   const [open, setOpen] = useState(false)
@@ -123,6 +124,7 @@ export default function Home() {
   const { subjectCode, topicCode } = useParams()
   const location  = useLocation()
   const navigate  = useNavigate()
+  const isMobile = useIsMobile()
 
   const [subject, setSubject]   = useState(location.state?.subject ?? null)
   const [topic, setTopic]       = useState(location.state?.topic   ?? null)
@@ -171,7 +173,17 @@ export default function Home() {
   )
 
   return (
-    <div style={{ background: '#0e0e0e', height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', paddingLeft: '24px', paddingRight: '24px', overflowY: 'auto' }}>
+    <div style={{ 
+      background: '#0e0e0e', 
+      height: '100vh', 
+      display: 'flex', 
+      flexDirection: 'column', 
+      alignItems: 'center', 
+      justifyContent: 'center', 
+      paddingLeft: isMobile ? '16px' : '24px', 
+      paddingRight: isMobile ? '16px' : '24px', 
+      overflowY: 'auto' 
+    }}>
       {/* Back Link */}
       <div style={{ width: '100%', maxWidth: '700px', marginBottom: '24px' }}>
         <button
@@ -197,7 +209,7 @@ export default function Home() {
         width: '100%', maxWidth: '700px',
         background: '#131313',
         borderRadius: '12px',
-        padding: '36px 32px',
+        padding: isMobile ? '28px 24px' : '36px 32px',
         position: 'relative',
         overflow: 'hidden',
         boxShadow: '0 0 40px rgba(199, 153, 255, 0.06)',
@@ -212,8 +224,16 @@ export default function Home() {
         }} />
 
         {/* Header */}
-        <div style={{ marginBottom: '32px', position: 'relative', zIndex: 10 }}>
-          <h1 style={{ fontSize: '36px', fontWeight: '700', color: '#e7e5e5', margin: '0 0 8px 0', letterSpacing: '-0.02em', fontFamily: 'Space Grotesk, sans-serif' }}>
+        <div style={{ marginBottom: isMobile ? '24px' : '32px', position: 'relative', zIndex: 10 }}>
+          <h1 style={{ 
+            fontSize: isMobile ? '28px' : '36px', 
+            fontWeight: '700', 
+            color: '#e7e5e5', 
+            margin: '0 0 8px 0', 
+            letterSpacing: '-0.02em', 
+            fontFamily: 'Space Grotesk, sans-serif',
+            lineHeight: 1.2
+          }}>
             {topic.topic_name}
           </h1>
           <p style={{ color: '#9f9d9d', fontSize: '13px', maxWidth: '400px', margin: 0, fontFamily: 'Inter, sans-serif', lineHeight: '1.4' }}>
@@ -234,7 +254,7 @@ export default function Home() {
             <label style={{ display: 'block', fontSize: '9px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9f9d9d', fontWeight: '700', marginBottom: '12px', marginLeft: '2px', fontFamily: 'Inter, sans-serif' }}>
               Question filter
             </label>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '8px' }}>
               {SKIP_OPTIONS.map((opt, i) => (
                 <div key={i} style={{ position: 'relative' }}>
                   <input
@@ -341,15 +361,16 @@ export default function Home() {
       </section>
 
       {/* Decorative elements - hidden on small screens */}
-      <div style={{
-        position: 'fixed', bottom: '40px', left: '32px',
-        opacity: 0.15, pointerEvents: 'none',
-        fontSize: '80px', fontWeight: '900', color: '#767575',
-        lineHeight: 1, fontFamily: 'Space Grotesk, sans-serif',
-        display: 'none'
-      }}>
-        ∑
-      </div>
+      {!isMobile && (
+        <div style={{
+          position: 'fixed', bottom: '40px', left: '32px',
+          opacity: 0.15, pointerEvents: 'none',
+          fontSize: '80px', fontWeight: '900', color: '#767575',
+          lineHeight: 1, fontFamily: 'Space Grotesk, sans-serif',
+        }}>
+          ∑
+        </div>
+      )}
     </div>
   )
 }

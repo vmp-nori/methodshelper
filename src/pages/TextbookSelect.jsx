@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { fetchSubjects } from '../lib/questions'
+import { useIsMobile } from '../lib/hooks'
 
 const SUBJECT_META = {
   'MM12': {
@@ -45,6 +46,7 @@ export default function TextbookSelect() {
   const [hovered, setHovered]   = useState(null)
   const [loading, setLoading]   = useState(true)
   const [error, setError]       = useState(null)
+  const isMobile = useIsMobile()
 
   useEffect(() => {
     fetchSubjects()
@@ -60,7 +62,7 @@ export default function TextbookSelect() {
       <header style={{
         display: 'flex',
         alignItems: 'center',
-        padding: '20px 56px',
+        padding: isMobile ? '20px 24px' : '20px 56px',
         background: 'transparent',
         flexShrink: 0,
       }}>
@@ -86,7 +88,17 @@ export default function TextbookSelect() {
       </header>
 
       {/* Main */}
-      <main style={{ padding: '24px 56px 32px', maxWidth: 1300, margin: '0 auto', width: '100%', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', paddingBottom: '16vh' }}>
+      <main style={{ 
+        padding: isMobile ? '24px 24px 32px' : '24px 56px 32px', 
+        maxWidth: 1300, 
+        margin: '0 auto', 
+        width: '100%', 
+        flex: 1, 
+        display: 'flex', 
+        flexDirection: 'column', 
+        justifyContent: 'center', 
+        paddingBottom: isMobile ? '8vh' : '16vh' 
+      }}>
 
         {/* Hero */}
         <section style={{ marginBottom: 36 }}>
@@ -100,7 +112,7 @@ export default function TextbookSelect() {
           </span>
           <h1 style={{
             fontFamily: '"Space Grotesk", sans-serif',
-            fontSize: 'clamp(48px, 6vw, 80px)',
+            fontSize: isMobile ? '36px' : 'clamp(48px, 6vw, 80px)',
             fontWeight: 900, letterSpacing: '-0.04em',
             lineHeight: 1.0, color: '#e7e5e5',
             margin: 0,
@@ -117,7 +129,7 @@ export default function TextbookSelect() {
         ) : (
           <div style={{
             display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
+            gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
             gap: 20,
           }}>
             {subjects.map(subject => {
@@ -138,7 +150,7 @@ export default function TextbookSelect() {
                     flexDirection: 'column',
                     alignItems: 'flex-start',
                     textAlign: 'left',
-                    padding: '28px 32px',
+                    padding: isMobile ? '24px' : '28px 32px',
                     background: isHov ? '#1f2020' : '#131313',
                     borderRadius: 16,
                     border: `1px solid ${isHov ? 'rgba(72,72,72,0.25)' : 'rgba(72,72,72,0.1)'}`,
@@ -175,7 +187,7 @@ export default function TextbookSelect() {
                   {/* Name */}
                   <h3 style={{
                     fontFamily: '"Space Grotesk", sans-serif',
-                    fontSize: 30, fontWeight: 700,
+                    fontSize: isMobile ? 24 : 30, fontWeight: 700,
                     letterSpacing: '-0.03em', lineHeight: 1.05,
                     color: '#e7e5e5', margin: '0 0 10px',
                     position: 'relative',
@@ -187,7 +199,7 @@ export default function TextbookSelect() {
                   <p style={{
                     fontSize: 14, color: '#767575',
                     fontWeight: 400, lineHeight: 1.6,
-                    margin: 0, maxWidth: 260,
+                    margin: 0, maxWidth: isMobile ? '100%' : 260,
                     position: 'relative',
                   }}>
                     {hasData ? meta.description : 'Coming soon.'}

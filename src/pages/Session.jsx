@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { MathText } from '../lib/math.jsx'
 import { buildQuestionList, fetchQuestionsForSession } from '../lib/questions'
+import { useIsMobile } from '../lib/hooks'
 
 const PHASE = { QUESTION: 'q', ANSWER: 'a' }
 
@@ -50,7 +51,9 @@ function SessionInner({ config, onReport, navigate }) {
   const [loading, setLoading]           = useState(true)
   const [error, setError]               = useState(null)
   const [fadeKey, setFadeKey]           = useState(0)
+  const [panelOpen, setPanelOpen]       = useState(false)
   const timer                           = useTimer()
+  const isMobile = useIsMobile()
 
   useEffect(() => {
     const exFromStart = topic.exercises.slice(startExerciseIndex)
@@ -118,16 +121,23 @@ function SessionInner({ config, onReport, navigate }) {
 
   return (
     <div
-      style={{ display: 'flex', height: '100vh', background: '#0e0e0e', overflow: 'hidden' }}
+      style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', height: '100vh', background: '#0e0e0e', overflow: 'hidden' }}
       onClick={advance}
     >
       {/* ── Main question area ── */}
       <section
         key={fadeKey}
-        style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '40px 56px', overflow: 'hidden', position: 'relative' }}
+        style={{ 
+          flex: 1, 
+          display: 'flex', 
+          flexDirection: 'column', 
+          padding: isMobile ? '24px 24px' : '40px 56px', 
+          overflow: 'hidden', 
+          position: 'relative' 
+        }}
       >
         {/* Header */}
-        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '32px', flexShrink: 0 }}>
+        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: isMobile ? '20px' : '32px', flexShrink: 0 }}>
           <div>
             <p style={{
               margin: '0 0 6px',
@@ -140,7 +150,7 @@ function SessionInner({ config, onReport, navigate }) {
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
               <span style={{
                 fontFamily: 'Space Grotesk, sans-serif',
-                fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em',
+                fontSize: isMobile ? 22 : 28, fontWeight: 700, letterSpacing: '-0.02em',
                 color: '#e7e5e5', lineHeight: 1,
               }}>
                 Ex {currentMeta?.exercise}
@@ -150,7 +160,7 @@ function SessionInner({ config, onReport, navigate }) {
               </span>
               <span style={{
                 fontFamily: 'Space Grotesk, sans-serif',
-                fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em',
+                fontSize: isMobile ? 22 : 28, fontWeight: 700, letterSpacing: '-0.02em',
                 color: '#e7e5e5', lineHeight: 1,
               }}>
                 Q{currentMeta?.number}
@@ -161,16 +171,32 @@ function SessionInner({ config, onReport, navigate }) {
             </div>
           </div>
 
-          {/* Timer */}
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            background: '#131313', border: '1px solid rgba(72,72,72,0.15)',
-            borderRadius: 9999, padding: '6px 14px',
-          }}
-          onClick={e => e.stopPropagation()}
-          >
-            <span style={{ fontSize: 11, color: '#c799ff' }}>⏱</span>
-            <span style={{ color: '#e7e5e5', fontSize: 12, fontFamily: 'Space Grotesk, sans-serif', fontWeight: 500 }}>{timer}</span>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {/* List button for mobile */}
+            {isMobile && (
+              <button style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: 36, height: 36,
+                background: '#131313', border: '1px solid rgba(72,72,72,0.15)',
+                borderRadius: 8, color: '#c799ff', fontSize: 14
+              }}
+              onClick={e => { e.stopPropagation(); setPanelOpen(true) }}
+              >
+                ▦
+              </button>
+            )}
+
+            {/* Timer */}
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              background: '#131313', border: '1px solid rgba(72,72,72,0.15)',
+              borderRadius: 9999, padding: isMobile ? '6px 10px' : '6px 14px',
+            }}
+            onClick={e => e.stopPropagation()}
+            >
+              <span style={{ fontSize: 11, color: '#c799ff' }}>⏱</span>
+              <span style={{ color: '#e7e5e5', fontSize: 12, fontFamily: 'Space Grotesk, sans-serif', fontWeight: 500 }}>{timer}</span>
+            </div>
           </div>
         </header>
 
@@ -178,25 +204,25 @@ function SessionInner({ config, onReport, navigate }) {
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', maxWidth: 720, width: '100%', alignSelf: 'center', overflow: 'hidden' }}>
 
           {/* ── Upper half: question (anchored to bottom of this half) ── */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', paddingBottom: 28 }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', paddingBottom: isMobile ? 20 : 28 }}>
 
             {/* Number + stem */}
-            <div style={{ marginBottom: hasParts || current?.question_text ? 20 : 0 }}>
+            <div style={{ marginBottom: hasParts || current?.question_text ? (isMobile ? 12 : 20) : 0 }}>
               {current?.question_text ? (
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: isMobile ? 12 : 16 }}>
                   <span style={{
-                    fontFamily: 'Space Grotesk, sans-serif', fontSize: 26, fontWeight: 500,
+                    fontFamily: 'Space Grotesk, sans-serif', fontSize: isMobile ? 20 : 26, fontWeight: 500,
                     color: '#484848', flexShrink: 0, lineHeight: 1.5,
                   }}>
                     {index + 1}.
                   </span>
                   <MathText
                     text={current.question_text}
-                    style={{ color: '#e7e5e5', fontSize: 26, fontWeight: 500, lineHeight: 1.5, fontFamily: 'Space Grotesk, sans-serif' }}
+                    style={{ color: '#e7e5e5', fontSize: isMobile ? 20 : 26, fontWeight: 500, lineHeight: 1.5, fontFamily: 'Space Grotesk, sans-serif' }}
                   />
                 </div>
               ) : (
-                <span style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: 26, fontWeight: 500, color: '#484848' }}>
+                <span style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: isMobile ? 20 : 26, fontWeight: 500, color: '#484848' }}>
                   {index + 1}.
                 </span>
               )}
@@ -206,12 +232,12 @@ function SessionInner({ config, onReport, navigate }) {
             {hasParts && activePart && (
               <div style={{
                 background: '#171717', borderRadius: 12,
-                padding: '24px 28px',
+                padding: isMobile ? '16px 20px' : '24px 28px',
                 border: '1px solid rgba(72,72,72,0.12)',
               }}>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 16 }}>
                   <span style={{
-                    fontFamily: 'Space Grotesk, sans-serif', fontSize: 22,
+                    fontFamily: 'Space Grotesk, sans-serif', fontSize: isMobile ? 18 : 22,
                     color: '#c799ff', fontWeight: 300, flexShrink: 0,
                   }}>
                     {activePart.label})
@@ -220,16 +246,16 @@ function SessionInner({ config, onReport, navigate }) {
                     {activePart.text ? (
                       <MathText
                         text={activePart.text}
-                        style={{ color: '#e7e5e5', fontSize: 22, lineHeight: 1.6, fontFamily: 'Inter, sans-serif' }}
+                        style={{ color: '#e7e5e5', fontSize: isMobile ? 18 : 22, lineHeight: 1.6, fontFamily: 'Inter, sans-serif' }}
                       />
                     ) : (
-                      <p style={{ color: '#484848', fontStyle: 'italic', fontSize: 14, margin: 0 }}>Question not indexed yet.</p>
+                      <p style={{ color: '#484848', fontStyle: 'italic', fontSize: 13, margin: 0 }}>Question not indexed yet.</p>
                     )}
                   </div>
                 </div>
                 {activePart.image && (
                   <img src={activePart.image} alt="Diagram"
-                    style={{ maxWidth: '100%', maxHeight: 220, borderRadius: 8, marginTop: 16 }} />
+                    style={{ maxWidth: '100%', maxHeight: isMobile ? 180 : 220, borderRadius: 8, marginTop: 16 }} />
                 )}
               </div>
             )}
@@ -237,7 +263,7 @@ function SessionInner({ config, onReport, navigate }) {
             {/* Non-parts diagram */}
             {!hasParts && current?.question_image && (
               <img src={current.question_image} alt="Diagram"
-                style={{ maxWidth: '100%', maxHeight: 220, borderRadius: 8, marginTop: 16 }} />
+                style={{ maxWidth: '100%', maxHeight: isMobile ? 180 : 220, borderRadius: 8, marginTop: 16 }} />
             )}
           </div>
 
@@ -245,7 +271,7 @@ function SessionInner({ config, onReport, navigate }) {
           <div style={{ height: 1, background: 'rgba(72,72,72,0.08)', flexShrink: 0 }} />
 
           {/* ── Lower half: answer (anchored to top of this half) ── */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', paddingTop: 28 }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', paddingTop: isMobile ? 20 : 28 }}>
             {phase === PHASE.ANSWER && (
               <div style={{ animation: 'answerReveal 0.35s cubic-bezier(0.16,1,0.3,1) both', position: 'relative' }}>
                 {/* Bloom glow */}
@@ -259,7 +285,7 @@ function SessionInner({ config, onReport, navigate }) {
                 <div style={{
                   position: 'relative',
                   background: '#131313', borderRadius: 12,
-                  padding: '20px 28px',
+                  padding: isMobile ? '16px 20px' : '20px 28px',
                   border: '1px solid rgba(199, 153, 255, 0.1)',
                   animation: 'borderGlow 0.7s ease 0.15s both',
                 }}>
@@ -277,10 +303,10 @@ function SessionInner({ config, onReport, navigate }) {
                       {activePart.answer ? (
                         <MathText
                           text={activePart.answer}
-                          style={{ color: '#c799ff', fontSize: 20, lineHeight: 1.8, whiteSpace: 'pre-wrap', fontFamily: 'Inter, sans-serif' }}
+                          style={{ color: '#c799ff', fontSize: isMobile ? 18 : 20, lineHeight: 1.8, whiteSpace: 'pre-wrap', fontFamily: 'Inter, sans-serif' }}
                         />
                       ) : (
-                        <p style={{ color: '#484848', fontStyle: 'italic', fontSize: 14, margin: 0 }}>Answer not indexed yet.</p>
+                        <p style={{ color: '#484848', fontStyle: 'italic', fontSize: 13, margin: 0 }}>Answer not indexed yet.</p>
                       )}
                       {activePart.answer_image && (
                         <img src={activePart.answer_image} alt="Answer diagram"
@@ -292,10 +318,10 @@ function SessionInner({ config, onReport, navigate }) {
                       {current?.answer_text ? (
                         <MathText
                           text={current.answer_text}
-                          style={{ color: '#c799ff', fontSize: 20, lineHeight: 1.8, whiteSpace: 'pre-wrap', fontFamily: 'Inter, sans-serif' }}
+                          style={{ color: '#c799ff', fontSize: isMobile ? 18 : 20, lineHeight: 1.8, whiteSpace: 'pre-wrap', fontFamily: 'Inter, sans-serif' }}
                         />
                       ) : (
-                        <p style={{ color: '#484848', fontStyle: 'italic', fontSize: 14, margin: 0 }}>Answer not indexed yet.</p>
+                        <p style={{ color: '#484848', fontStyle: 'italic', fontSize: 13, margin: 0 }}>Answer not indexed yet.</p>
                       )}
                       {current?.answer_image && (
                         <img src={current.answer_image} alt="Answer diagram"
@@ -311,7 +337,14 @@ function SessionInner({ config, onReport, navigate }) {
         </div>
 
         {/* Bottom: sub-part dots + SPACE hint */}
-        <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, paddingBottom: 8 }}
+        <div style={{ 
+          flexShrink: 0, 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center', 
+          gap: 12, 
+          paddingBottom: `calc(${isMobile ? '12px' : '8px'} + env(safe-area-inset-bottom))` 
+        }}
           onClick={e => e.stopPropagation()}
         >
           {/* Sub-part progress dots */}
@@ -327,20 +360,24 @@ function SessionInner({ config, onReport, navigate }) {
             </div>
           )}
 
-          {/* Keyboard hint pill */}
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 10,
-            background: '#131313', border: '1px solid rgba(72,72,72,0.2)',
-            borderRadius: 9999, padding: '8px 20px',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-          }}>
+          {/* Keyboard hint pill / Next button */}
+          <div 
+            onClick={advance}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              background: '#131313', border: '1px solid rgba(72,72,72,0.2)',
+              borderRadius: 9999, padding: '8px 20px',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+              cursor: 'pointer'
+            }}
+          >
             <span style={{
               background: '#c799ff', color: '#0e0e0e',
               padding: '2px 8px', borderRadius: 4,
               fontSize: 10, fontWeight: 700, letterSpacing: '0.05em',
               fontFamily: 'Space Grotesk, sans-serif',
             }}>
-              SPACE
+              {isMobile ? 'NEXT' : 'SPACE'}
             </span>
             <span style={{ color: '#9f9d9d', fontSize: 12, fontFamily: 'Inter, sans-serif' }}>
               {phase === PHASE.QUESTION ? 'Reveal Answer' : 'Next Question'}
@@ -349,15 +386,33 @@ function SessionInner({ config, onReport, navigate }) {
         </div>
       </section>
 
-      {/* ── Right panel ── */}
-      <QuestionPanel
-        questionList={questionList}
-        currentIndex={index}
-        phase={phase}
-        progressPct={progressPct}
-        topicName={topicName}
-        onJump={i => { setIndex(i); setSubPartIndex(0); setPhase(PHASE.QUESTION); setFadeKey(k => k + 1) }}
-      />
+      {/* ── Right panel / Bottom drawer ── */}
+      {(!isMobile || panelOpen) && (
+        <>
+          {isMobile && (
+            <div 
+              style={{
+                position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 990,
+                backdropFilter: 'blur(4px)', animation: 'fadeIn 0.2s ease'
+              }}
+              onClick={() => setPanelOpen(false)}
+            />
+          )}
+          <QuestionPanel
+            isMobile={isMobile}
+            questionList={questionList}
+            currentIndex={index}
+            phase={phase}
+            progressPct={progressPct}
+            topicName={topicName}
+            onJump={i => { 
+              setIndex(i); setSubPartIndex(0); setPhase(PHASE.QUESTION); setFadeKey(k => k + 1);
+              if (isMobile) setPanelOpen(false);
+            }}
+            onClose={() => setPanelOpen(false)}
+          />
+        </>
+      )}
 
       <style>{`
         @keyframes answerReveal {
@@ -369,6 +424,14 @@ function SessionInner({ config, onReport, navigate }) {
           60%  { box-shadow: 0 0 20px 4px rgba(199,153,255,0.08); border-color: rgba(199,153,255,0.2); }
           100% { box-shadow: 0 0 0 0 rgba(199,153,255,0); border-color: rgba(199,153,255,0.1); }
         }
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes slideUp {
+          from { transform: translateY(100%); }
+          to { transform: translateY(0); }
+        }
       `}</style>
     </div>
   )
@@ -376,7 +439,7 @@ function SessionInner({ config, onReport, navigate }) {
 
 // ── Question panel ───────────────────────────────────────────────────────────
 
-function QuestionPanel({ questionList, currentIndex, phase, progressPct, topicName, onJump }) {
+function QuestionPanel({ isMobile, questionList, currentIndex, phase, progressPct, topicName, onJump, onClose }) {
   const groups = []
   for (const q of questionList) {
     const last = groups[groups.length - 1]
@@ -396,26 +459,54 @@ function QuestionPanel({ questionList, currentIndex, phase, progressPct, topicNa
   return (
     <aside
       style={{
-        width: 280, flexShrink: 0,
+        width: isMobile ? '100%' : 280, 
+        height: isMobile ? '70vh' : 'auto',
+        position: isMobile ? 'fixed' : 'relative',
+        bottom: isMobile ? 0 : 'auto',
+        left: isMobile ? 0 : 'auto',
+        zIndex: isMobile ? 1000 : 1,
+        flexShrink: 0,
         background: '#131313',
-        borderLeft: '1px solid rgba(72,72,72,0.08)',
+        borderLeft: isMobile ? 'none' : '1px solid rgba(72,72,72,0.08)',
+        borderTop: isMobile ? '1px solid rgba(72,72,72,0.15)' : 'none',
+        borderRadius: isMobile ? '20px 20px 0 0' : 0,
         display: 'flex', flexDirection: 'column',
-        padding: '40px 24px',
+        padding: isMobile ? '24px' : '40px 24px',
         overflowY: 'auto',
+        animation: isMobile ? 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)' : 'none',
+        boxShadow: isMobile ? '0 -8px 40px rgba(0,0,0,0.5)' : 'none',
       }}
       onClick={e => e.stopPropagation()}
     >
+      {/* Drawer handle for mobile */}
+      {isMobile && (
+        <div 
+          onClick={onClose}
+          style={{ width: 40, height: 4, background: '#252626', borderRadius: 2, margin: '0 auto 24px', flexShrink: 0 }} 
+        />
+      )}
+
       {/* Panel header */}
       <div style={{ marginBottom: 24 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-          <span style={{ fontSize: 12, color: '#c799ff', lineHeight: 1 }}>▦</span>
-          <h2 style={{
-            fontSize: 10, fontWeight: 700, letterSpacing: '0.2em',
-            textTransform: 'uppercase', color: '#e7e5e5', margin: 0,
-            fontFamily: 'Space Grotesk, sans-serif',
-          }}>
-            Question Set
-          </h2>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 12, color: '#c799ff', lineHeight: 1 }}>▦</span>
+            <h2 style={{
+              fontSize: 10, fontWeight: 700, letterSpacing: '0.2em',
+              textTransform: 'uppercase', color: '#e7e5e5', margin: 0,
+              fontFamily: 'Space Grotesk, sans-serif',
+            }}>
+              Question Set
+            </h2>
+          </div>
+          {isMobile && (
+            <button 
+              onClick={onClose}
+              style={{ background: 'none', border: 'none', color: '#484848', fontSize: 18, padding: 0, cursor: 'pointer' }}
+            >
+              ×
+            </button>
+          )}
         </div>
 
         {/* Progress bar */}
@@ -437,7 +528,7 @@ function QuestionPanel({ questionList, currentIndex, phase, progressPct, topicNa
       </div>
 
       {/* Question groups */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 20, flex: 1 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20, flex: 1, overflowY: 'auto' }}>
         {indexed.map(group => {
           const groupHasCurrent = group.questions.some(q => q.flatIndex === currentIndex)
           return (
@@ -450,7 +541,7 @@ function QuestionPanel({ questionList, currentIndex, phase, progressPct, topicNa
               }}>
                 Exercise {group.exercise}
               </p>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: isMobile ? 6 : 4 }}>
                 {group.questions.map(q => {
                   const isCurrent = q.flatIndex === currentIndex
                   const isDone = q.flatIndex < currentIndex || (q.flatIndex === currentIndex && phase === PHASE.ANSWER)
@@ -460,11 +551,11 @@ function QuestionPanel({ questionList, currentIndex, phase, progressPct, topicNa
                       onClick={() => onJump(q.flatIndex)}
                       title={`Q${q.number}`}
                       style={{
-                        width: 30, height: 30, borderRadius: 6,
+                        width: isMobile ? 36 : 30, height: isMobile ? 36 : 30, borderRadius: 6,
                         border: isCurrent ? '1px solid rgba(199,153,255,0.5)' : '1px solid transparent',
                         background: isCurrent ? 'rgba(199,153,255,0.1)' : isDone ? '#1f2020' : 'transparent',
                         color: isCurrent ? '#c799ff' : isDone ? '#484848' : '#333',
-                        fontSize: 10, fontWeight: isCurrent ? 700 : 400,
+                        fontSize: isMobile ? 12 : 10, fontWeight: isCurrent ? 700 : 400,
                         cursor: 'pointer', transition: 'all 0.15s',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         fontFamily: 'Inter, sans-serif',
@@ -483,24 +574,26 @@ function QuestionPanel({ questionList, currentIndex, phase, progressPct, topicNa
       </div>
 
       {/* ESC hint */}
-      <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid rgba(72,72,72,0.08)' }}>
-        <button
-          onClick={e => { e.stopPropagation(); /* onBack called via ESC */ }}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 8, background: 'none',
-            border: 'none', cursor: 'pointer', padding: 0,
-          }}
-        >
-          <kbd style={{
-            background: '#1f2020', border: '1px solid rgba(72,72,72,0.2)',
-            borderRadius: 4, padding: '3px 8px',
-            color: '#484848', fontSize: 9, fontFamily: 'monospace', fontWeight: 600,
-          }}>ESC</kbd>
-          <span style={{ color: '#484848', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: 'Inter, sans-serif' }}>
-            Exit
-          </span>
-        </button>
-      </div>
+      {!isMobile && (
+        <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid rgba(72,72,72,0.08)' }}>
+          <button
+            onClick={e => { e.stopPropagation(); /* onBack called via ESC */ }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8, background: 'none',
+              border: 'none', cursor: 'pointer', padding: 0,
+            }}
+          >
+            <kbd style={{
+              background: '#1f2020', border: '1px solid rgba(72,72,72,0.2)',
+              borderRadius: 4, padding: '3px 8px',
+              color: '#484848', fontSize: 9, fontFamily: 'monospace', fontWeight: 600,
+            }}>ESC</kbd>
+            <span style={{ color: '#484848', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: 'Inter, sans-serif' }}>
+              Exit
+            </span>
+          </button>
+        </div>
+      )}
     </aside>
   )
 }

@@ -5,10 +5,12 @@ import TopicSelect from './pages/TopicSelect'
 import Home from './pages/Home'
 import Session from './pages/Session'
 import BugReportModal from './components/BugReportModal'
+import { useIsMobile } from './lib/hooks'
 
 function Wordmark() {
   const location = useLocation()
   const navigate  = useNavigate()
+  const isMobile = useIsMobile()
 
   // Only show on sub-pages
   if (location.pathname === '/') return null
@@ -28,7 +30,10 @@ function Wordmark() {
       onClick={() => navigate('/')}
       title="Back to textbook selection"
       style={{
-        position: 'fixed', top: 24, left: 28, zIndex: 950,
+        position: 'fixed', 
+        top: isMobile ? 12 : 24, 
+        left: isMobile ? 16 : 28, 
+        zIndex: 950,
         display: 'flex', alignItems: 'center', gap: 12,
         background: 'none', border: 'none', cursor: 'pointer',
         padding: '6px 10px 6px 6px',
@@ -40,12 +45,12 @@ function Wordmark() {
     >
       {/* Logo mark */}
       <div style={{
-        width: 36, height: 36,
+        width: isMobile ? 32 : 36, height: isMobile ? 32 : 36,
         background: 'linear-gradient(135deg, #c799ff22, #7c3aed44)',
         border: '1px solid rgba(199,153,255,0.2)',
         borderRadius: 9,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontFamily: 'serif', fontSize: 17, fontWeight: 700, color: '#c799ff',
+        fontFamily: 'serif', fontSize: isMobile ? 15 : 17, fontWeight: 700, color: '#c799ff',
         flexShrink: 0,
       }}>
         Σ
@@ -55,7 +60,7 @@ function Wordmark() {
       <div style={{ textAlign: 'left' }}>
         <div style={{
           fontFamily: '"Space Grotesk", sans-serif',
-          fontSize: 15, fontWeight: 800,
+          fontSize: isMobile ? 13 : 15, fontWeight: 800,
           color: '#e7e5e5', letterSpacing: '-0.025em',
           lineHeight: 1.2,
         }}>
@@ -63,7 +68,7 @@ function Wordmark() {
         </div>
         {label && (
           <div style={{
-            fontSize: 9, letterSpacing: '0.18em',
+            fontSize: isMobile ? 8 : 9, letterSpacing: '0.18em',
             textTransform: 'uppercase', color: '#484848',
             marginTop: 2,
           }}>
@@ -78,6 +83,7 @@ function Wordmark() {
 export default function App() {
   const [reportOpen, setReportOpen]     = useState(false)
   const [reportContext, setReportContext] = useState(null)
+  const isMobile = useIsMobile()
 
   function openReport(ctx = null) {
     setReportContext(ctx)
@@ -101,7 +107,10 @@ export default function App() {
         onClick={() => openReport()}
         title="Report an issue"
         style={{
-          position: 'fixed', bottom: '24px', right: '24px', zIndex: 900,
+          position: 'fixed', 
+          bottom: `calc(${isMobile ? '16px' : '24px'} + env(safe-area-inset-bottom))`, 
+          right: isMobile ? '16px' : '24px', 
+          zIndex: 900,
           width: '36px', height: '36px',
           background: '#131313',
           border: '1px solid rgba(72,72,72,0.15)',

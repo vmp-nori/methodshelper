@@ -17,6 +17,7 @@ dist-ssr
 
 # Local/sensitive directories
 .claude/
+.gemini/
 11METHODS/
 scripts/__pycache__/
 *.csv

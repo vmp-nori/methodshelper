@@ -12,8 +12,8 @@ function Wordmark() {
   const navigate  = useNavigate()
   const isMobile = useIsMobile()
 
-  // Only show on mobile sub-pages — desktop pages have their own headers
-  if (!isMobile || location.pathname === '/') return null
+  // Hidden on root — desktop pages now use this persistent wordmark too
+  if (location.pathname === '/') return null
 
   // Best-effort subject name from navigation state
   const subject = location.state?.subject ?? location.state?.config?.subjectId ?? null
@@ -67,16 +67,76 @@ function Wordmark() {
           SUPsmasher
         </div>
         {label && (
-          <div style={{
-            fontSize: isMobile ? 8 : 9, letterSpacing: '0.18em',
-            textTransform: 'uppercase', color: '#484848',
-            marginTop: 2,
-          }}>
-            {label}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+            <div style={{
+              fontSize: isMobile ? 8 : 9, letterSpacing: '0.18em',
+              textTransform: 'uppercase', color: '#484848',
+            }}>
+              {label}
+            </div>
+            <span style={{ 
+              fontSize: isMobile ? 7 : 8, 
+              color: '#c799ff66', 
+              border: '1px solid rgba(199,153,255,0.2)', 
+              padding: '1px 4px', 
+              borderRadius: 3,
+              fontWeight: 700,
+              letterSpacing: '0.05em'
+            }}>BETA</span>
           </div>
         )}
       </div>
     </button>
+  )
+}
+
+function SocialLink() {
+  const isMobile = useIsMobile()
+  const location = useLocation()
+  
+  if (location.pathname === '/') return null
+
+  return (
+    <a
+      href="https://instagram.com/notnorin"
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{
+        position: 'fixed',
+        bottom: `calc(${isMobile ? '16px' : '24px'} + env(safe-area-inset-bottom))`,
+        left: isMobile ? '16px' : '24px',
+        zIndex: 900,
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '8px 14px',
+        background: '#131313',
+        border: '1px solid rgba(72,72,72,0.15)',
+        borderRadius: 9999,
+        textDecoration: 'none',
+        transition: 'all 0.2s',
+        boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.borderColor = 'rgba(199,153,255,0.3)'
+        e.currentTarget.style.background = '#1a1a1a'
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.borderColor = 'rgba(72,72,72,0.15)'
+        e.currentTarget.style.background = '#131313'
+      }}
+    >
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c799ff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+        <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+        <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+      </svg>
+      <span style={{
+        fontFamily: 'Space Grotesk, sans-serif',
+        fontSize: 11, fontWeight: 700, color: '#e7e5e5',
+        letterSpacing: '0.02em'
+      }}>
+        @notnorin
+      </span>
+    </a>
   )
 }
 
@@ -102,10 +162,13 @@ export default function App() {
       {/* Persistent wordmark — hidden on root */}
       <Wordmark />
 
-      {/* Mobile: fixed dark strip behind the wordmark so scrolling content doesn't bleed through */}
-      {isMobile && <div style={{
+      {/* Instagram link */}
+      <SocialLink />
+
+      {/* Dark shield strip behind the wordmark so scrolling content doesn't bleed through */}
+      {location.pathname !== '/' && <div style={{
         position: 'fixed', top: 0, left: 0, right: 0,
-        height: 64,
+        height: isMobile ? 64 : 80,
         background: '#0e0e0e',
         zIndex: 940,
         pointerEvents: 'none',

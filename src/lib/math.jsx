@@ -10,7 +10,8 @@ export function parseAndRenderMath(text) {
 
   const segments = []
   // Match $$...$$ first (display), then $...$
-  const pattern = /(\$\$[\s\S]+?\$\$|\$[^$\n]+?\$)/g
+  // The $...$ pattern now handles escaped dollar signs \$
+  const pattern = /(\$\$[\s\S]+?\$\$|\$(?:\\\$|[^$\n])+?\$)/g
   let lastIndex = 0
   let match
 
@@ -41,36 +42,96 @@ export function parseAndRenderMath(text) {
   return segments
 }
 
-/**
- * React component that renders mixed text + math.
- * Segments with type 'display' are block-level; others are inline.
- */
-export function MathText({ text, className = '' }) {
+function renderTable(lines) {
+  return (
+    <div style={{ overflowX: 'auto', margin: '16px 0' }}>
+      <table style={{ 
+        borderCollapse: 'collapse', 
+        width: 'auto', 
+        minWidth: '200px',
+        border: '1px solid rgba(72, 72, 72, 0.2)',
+        fontSize: '0.9em'
+      }}>
+        <tbody>
+          {lines.map((line, li) => {
+            const cells = line.split('|').map(c => c.trim())
+            return (
+              <tr key={li} style={{ borderBottom: '1px solid rgba(72, 72, 72, 0.1)' }}>
+                {cells.map((cell, ci) => (
+                  <td key={ci} style={{ 
+                    padding: '8px 16px', 
+                    borderRight: '1px solid rgba(72, 72, 72, 0.1)',
+                    textAlign: 'center'
+                  }}>
+                    <MathText text={cell} />
+                  </td>
+                ))}
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+export function MathText({ text, className = '', style = {} }) {
   if (!text) return null
-  const segments = parseAndRenderMath(text)
+  
+  const lines = text.split('\n')
+  const blocks = []
+  let currentTable = []
+
+  lines.forEach((line) => {
+    if (line.includes('|')) {
+      currentTable.push(line)
+    } else {
+      if (currentTable.length > 0) {
+        blocks.push({ type: 'table', content: currentTable })
+        currentTable = []
+      }
+      if (line.trim() || blocks.length === 0 || (blocks.length > 0 && blocks[blocks.length-1].type === 'table')) {
+        blocks.push({ type: 'text', content: line })
+      }
+    }
+  })
+  if (currentTable.length > 0) {
+    blocks.push({ type: 'table', content: currentTable })
+  }
 
   return (
-    <span className={className}>
-      {segments.map((seg, i) => {
-        if (seg.type === 'display') {
-          return (
-            <span
-              key={i}
-              className="block my-2"
-              dangerouslySetInnerHTML={{ __html: seg.content }}
-            />
-          )
+    <div className={className} style={{ whiteSpace: 'pre-wrap', ...style }}>
+      {blocks.map((block, bi) => {
+        if (block.type === 'table') {
+          return <div key={bi}>{renderTable(block.content)}</div>
         }
-        if (seg.type === 'math') {
-          return (
-            <span
-              key={i}
-              dangerouslySetInnerHTML={{ __html: seg.content }}
-            />
-          )
-        }
-        return <span key={i}>{seg.content}</span>
+        
+        const segments = parseAndRenderMath(block.content)
+        return (
+          <div key={bi} style={{ minHeight: '1.2em' }}>
+            {segments.map((seg, i) => {
+              if (seg.type === 'display') {
+                return (
+                  <span
+                    key={i}
+                    className="block my-2"
+                    dangerouslySetInnerHTML={{ __html: seg.content }}
+                  />
+                )
+              }
+              if (seg.type === 'math') {
+                return (
+                  <span
+                    key={i}
+                    dangerouslySetInnerHTML={{ __html: seg.content }}
+                  />
+                )
+              }
+              return <span key={i}>{seg.content}</span>
+            })}
+          </div>
+        )
       })}
-    </span>
+    </div>
   )
 }

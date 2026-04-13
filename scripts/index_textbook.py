@@ -236,6 +236,7 @@ def call_ollama_vision(prompt: str, image_b64: str) -> str:
     try:
         resp = requests.post(f"{OLLAMA_URL}/api/chat", json=payload, timeout=600)
         resp.raise_for_status()
+        resp.encoding = 'utf-8'
         content = resp.json()["message"]["content"].strip()
         print(f"    [Ollama] Response received ({len(content)} chars)")
         return content

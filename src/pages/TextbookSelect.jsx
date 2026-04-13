@@ -157,22 +157,10 @@ export default function TextbookSelect() {
                     cursor: hasData ? 'pointer' : 'default',
                     opacity: hasData ? 1 : 0.35,
                     transition: 'background 0.5s cubic-bezier(0.4,0,0.2,1), border-color 0.5s cubic-bezier(0.4,0,0.2,1), box-shadow 0.5s cubic-bezier(0.4,0,0.2,1)',
-                    boxShadow: isHov ? '0 0 40px rgba(198,198,198,0.06)' : 'none',
+                    boxShadow: isHov ? `0 12px 40px rgba(0,0,0,0.4), 0 0 20px ${meta.glowHover}` : 'none',
                     overflow: 'hidden',
                   }}
                 >
-                  {/* Bloom glow */}
-                  <div style={{
-                    position: 'absolute',
-                    right: -96, top: -96,
-                    width: 288, height: 288,
-                    background: `radial-gradient(circle, ${isHov ? meta.glowHover : meta.glowColor} 0%, transparent 70%)`,
-                    borderRadius: '50%',
-                    filter: 'blur(60px)',
-                    pointerEvents: 'none',
-                    transition: 'background 0.7s cubic-bezier(0.4,0,0.2,1)',
-                  }} />
-
                   {/* Volume label */}
                   <span style={{
                     fontFamily: '"Space Grotesk", sans-serif',

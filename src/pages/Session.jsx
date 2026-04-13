@@ -90,11 +90,50 @@ function SessionInner({ config, onReport, navigate }) {
         } else if (index > 0) {
           setIndex(i => i - 1); setSubPartIndex(0); setPhase(PHASE.QUESTION); setFadeKey(k => k + 1)
         }
+      } else if (e.code === 'ArrowDown') {
+        e.preventDefault()
+        const currentEx = questionList[index]?.exercise
+        let nextIdx = -1
+        for (let i = index + 1; i < questionList.length; i++) {
+          if (questionList[i].exercise !== currentEx) {
+            nextIdx = i; break
+          }
+        }
+        if (nextIdx !== -1) {
+          setIndex(nextIdx); setSubPartIndex(0); setPhase(PHASE.QUESTION); setFadeKey(k => k + 1)
+        }
+      } else if (e.code === 'ArrowUp') {
+        e.preventDefault()
+        const currentEx = questionList[index]?.exercise
+        let firstOfCurrent = index
+        for (let i = index; i >= 0; i--) {
+          if (questionList[i].exercise === currentEx) firstOfCurrent = i
+          else break
+        }
+
+        if (index > firstOfCurrent) {
+          setIndex(firstOfCurrent); setSubPartIndex(0); setPhase(PHASE.QUESTION); setFadeKey(k => k + 1)
+        } else {
+          let prevIdx = -1
+          for (let i = index - 1; i >= 0; i--) {
+            if (questionList[i].exercise !== currentEx) {
+              const prevExLabel = questionList[i].exercise
+              for (let j = i; j >= 0; j--) {
+                if (questionList[j].exercise === prevExLabel) prevIdx = j
+                else break
+              }
+              break
+            }
+          }
+          if (prevIdx !== -1) {
+            setIndex(prevIdx); setSubPartIndex(0); setPhase(PHASE.QUESTION); setFadeKey(k => k + 1)
+          }
+        }
       } else if (e.code === 'Escape') navigate(-1)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [advance, index, subPartIndex, questions, phase, navigate])
+  }, [advance, index, subPartIndex, questions, phase, navigate, questionList])
 
   if (loading) return <LoadingScreen />
   if (error)   return <ErrorScreen error={error} onBack={() => navigate(-1)} />
@@ -126,10 +165,10 @@ function SessionInner({ config, onReport, navigate }) {
         }}
       >
         {/* Header */}
-        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: isMobile ? '20px' : '32px', flexShrink: 0 }}>
+        <header style={{ display: isMobile ? 'flex' : 'none', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', flexShrink: 0 }}>
 
-          {/* Desktop: details on left. Mobile: panel toggle on left */}
-          {isMobile ? (
+          {/* Mobile: panel toggle on left */}
+          {isMobile && (
             <button style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               width: 36, height: 36, flexShrink: 0,
@@ -140,27 +179,6 @@ function SessionInner({ config, onReport, navigate }) {
             >
               ▦
             </button>
-          ) : (
-            <div>
-              <p style={{
-                margin: '0 0 6px',
-                fontSize: 11, fontWeight: 700, letterSpacing: '0.18em',
-                textTransform: 'uppercase', color: '#c799ff',
-                fontFamily: 'Space Grotesk, sans-serif',
-              }}>
-                {topicName}
-              </p>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-                <span style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: '#e7e5e5', lineHeight: 1 }}>
-                  Ex {currentMeta?.exercise}
-                </span>
-                <span style={{ color: '#484848', fontSize: 18, fontFamily: 'Space Grotesk, sans-serif', fontWeight: 500 }}>·</span>
-                <span style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: '#e7e5e5', lineHeight: 1 }}>
-                  Q{currentMeta?.number}
-                  {hasParts && activePart && <span style={{ color: '#c799ff' }}> {activePart.label})</span>}
-                </span>
-              </div>
-            </div>
           )}
 
           {/* Mobile: details on right */}
@@ -189,10 +207,34 @@ function SessionInner({ config, onReport, navigate }) {
         </header>
 
         {/* Question content — split into two fixed halves so nothing shifts on reveal */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', maxWidth: 720, width: '100%', alignSelf: 'center', overflow: 'hidden' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', maxWidth: 1000, width: '100%', alignSelf: 'center', overflow: 'hidden' }}>
 
           {/* ── Upper half: question (anchored to bottom of this half) ── */}
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', paddingBottom: isMobile ? 20 : 28 }}>
+
+            {/* Desktop-only breadcrumb moved from header */}
+            {!isMobile && (
+              <div style={{ marginBottom: 20 }}>
+                <p style={{
+                  margin: '0 0 6px',
+                  fontSize: 11, fontWeight: 700, letterSpacing: '0.18em',
+                  textTransform: 'uppercase', color: '#c799ff',
+                  fontFamily: 'Space Grotesk, sans-serif',
+                }}>
+                  {topicName}
+                </p>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+                  <span style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: '#e7e5e5', lineHeight: 1 }}>
+                    Ex {currentMeta?.exercise}
+                  </span>
+                  <span style={{ color: '#484848', fontSize: 18, fontFamily: 'Space Grotesk, sans-serif', fontWeight: 500 }}>·</span>
+                  <span style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: '#e7e5e5', lineHeight: 1 }}>
+                    Q{currentMeta?.number}
+                    {hasParts && activePart && <span style={{ color: '#c799ff' }}> {activePart.label})</span>}
+                  </span>
+                </div>
+              </div>
+            )}
 
             {/* Number + stem */}
             <div style={{ marginBottom: hasParts || current?.question_text ? (isMobile ? 12 : 20) : 0 }}>
@@ -202,7 +244,7 @@ function SessionInner({ config, onReport, navigate }) {
                     fontFamily: 'Space Grotesk, sans-serif', fontSize: isMobile ? 20 : 26, fontWeight: 500,
                     color: '#484848', flexShrink: 0, lineHeight: 1.5,
                   }}>
-                    {index + 1}.
+                    {currentMeta?.number}.
                   </span>
                   <MathText
                     text={current.question_text}
@@ -262,20 +304,12 @@ function SessionInner({ config, onReport, navigate }) {
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', paddingTop: isMobile ? 20 : 28 }}>
             {phase === PHASE.ANSWER && (
               <div style={{ animation: 'answerReveal 0.35s cubic-bezier(0.16,1,0.3,1) both', position: 'relative' }}>
-                {/* Bloom glow */}
-                <div style={{
-                  position: 'absolute', inset: -20,
-                  background: 'rgba(199, 153, 255, 0.05)',
-                  filter: 'blur(50px)',
-                  borderRadius: 24,
-                  pointerEvents: 'none',
-                }} />
                 <div style={{
                   position: 'relative',
                   background: '#131313', borderRadius: 12,
                   padding: isMobile ? '16px 20px' : '20px 28px',
-                  border: '1px solid rgba(199, 153, 255, 0.1)',
-                  animation: 'borderGlow 0.7s ease 0.15s both',
+                  border: '1px solid rgba(199, 153, 255, 0.15)',
+                  animation: 'borderGlow 0.8s ease 0.1s both',
                 }}>
                   <div style={{ marginBottom: 10 }}>
                     <span style={{
@@ -408,9 +442,9 @@ function SessionInner({ config, onReport, navigate }) {
           to   { opacity: 1; transform: translateY(0); }
         }
         @keyframes borderGlow {
-          0%   { box-shadow: 0 0 0 0 rgba(199,153,255,0.25); border-color: rgba(199,153,255,0.35); }
-          60%  { box-shadow: 0 0 20px 4px rgba(199,153,255,0.08); border-color: rgba(199,153,255,0.2); }
-          100% { box-shadow: 0 0 0 0 rgba(199,153,255,0); border-color: rgba(199,153,255,0.1); }
+          0%   { border-color: rgba(199,153,255,0.1); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+          50%  { border-color: rgba(199,153,255,0.4); box-shadow: 0 12px 30px rgba(0,0,0,0.4), 0 0 20px rgba(199,153,255,0.12); }
+          100% { border-color: rgba(199,153,255,0.25); box-shadow: 0 8px 24px rgba(0,0,0,0.3), 0 0 12px rgba(199,153,255,0.06); }
         }
         @keyframes fadeIn {
           from { opacity: 0; }

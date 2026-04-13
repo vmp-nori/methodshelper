@@ -98,10 +98,18 @@ export async function fetchQuestionsForSession(questionsToFetch, subjectId) {
  * skipEvery: 1 = all questions, 2 = every other, 3 = every third
  * skipOffset: 0 = start from Q1, 1 = start from Q2 (for "odd/even" variants)
  */
-export function buildQuestionList(exercises, skipEvery = 1, skipOffset = 0) {
+export function buildQuestionList(exercises, skipEvery = 1, skipOffset = 0, endOnLast = false) {
   const list = []
   for (const ex of exercises) {
-    const qs = ex.questions.filter((_, i) => (i - skipOffset) % skipEvery === 0)
+    let qs
+    if (endOnLast && skipEvery > 1) {
+      // Pick the offset (0 or 1) that causes the last question to be included
+      const lastIndex = ex.questions.length - 1
+      const offset = lastIndex % skipEvery
+      qs = ex.questions.filter((_, i) => i % skipEvery === offset)
+    } else {
+      qs = ex.questions.filter((_, i) => (i - skipOffset) % skipEvery === 0)
+    }
     for (const n of qs) {
       list.push({ exercise: ex.exercise, number: n })
     }

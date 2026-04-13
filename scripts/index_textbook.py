@@ -1,30 +1,35 @@
 """
 index_textbook.py — Indexes a VCE Math textbook PDF into the SUPsmasher Supabase project.
 
-For each exercise found in the textbook:
+For each exercise (e.g. "Exercise 1A") found in the textbook:
   1. Renders the relevant pages to images (via PyMuPDF)
-  2. Sends them to a local Gemma model via Ollama to extract questions + sub-parts
+  2. Sends them to a local vision model via Ollama to extract questions and sub-parts
   3. Does the same for the answers section at the back
-  4. Crops any diagrams and uploads them to Supabase Storage (bucket: textbook_images)
-  5. Uploads everything to the textbook_questions table in Supabase
+  4. Uploads everything to the textbook_questions table in Supabase
+
+Chapter review sections ("Chapter N review", "Multiple-choice questions",
+"Extended-response questions", "Technology-free/active") are intentionally skipped.
 
 Requirements:
-    pip install supabase pymupdf requests tqdm
+    pip install supabase pymupdf requests python-dotenv
 
-    Ollama must be running locally with a multimodal model pulled:
-        ollama pull gemma4-26b      (or whichever vision model you use)
+    Ollama must be running locally with a multimodal model pulled.
 
 Usage:
-    set SUPABASE_SERVICE_KEY=your_service_role_key
+    # SUPABASE_SERVICE_KEY loaded from .env
     python index_textbook.py --subject MM12 --pdf "C:\\path\\to\\Methods 1&2.pdf"
 
-    # Index only specific exercises:
+    # Only specific exercises:
     python index_textbook.py --subject MM12 --pdf "..." --exercises 1A 1B 1C
 
-    # Resume from a specific page:
+    # Resume / override page boundaries:
     python index_textbook.py --subject MM12 --pdf "..." --start-page 50
+    python index_textbook.py --subject MM12 --pdf "..." --answers-page 779
 
-The script is safe to re-run — it skips questions already in the database.
+    # Re-process and overwrite already-indexed exercises:
+    python index_textbook.py --subject MM12 --pdf "..." --exercises 1A --force
+
+Safe to re-run — it skips exercises that already have indexed rows.
 """
 
 import os
@@ -34,14 +39,16 @@ import json
 import base64
 import argparse
 import requests
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # ── Config ──────────────────────────────────────────────────────────────────
-SUPABASE_URL   = "https://bodwvpqtfhqmpzialpig.supabase.co"
-SUPABASE_KEY   = os.environ.get("SUPABASE_SERVICE_KEY", "")
-OLLAMA_URL     = os.environ.get("OLLAMA_URL", "http://localhost:11434")
-OLLAMA_MODEL   = os.environ.get("OLLAMA_MODEL", "gemma4-26b")
-RENDER_DPI     = 150
-STORAGE_BUCKET = "textbook_images"
+SUPABASE_URL = "https://bodwvpqtfhqmpzialpig.supabase.co"
+SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
+OLLAMA_URL   = os.environ.get("OLLAMA_URL",   "http://localhost:11434")
+OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "gemma4-e4b-128k:latest")
+RENDER_DPI   = 150
 
 SUBJECT_CODES = {
     "MM12": "Mathematical Methods 1&2",
@@ -49,76 +56,161 @@ SUBJECT_CODES = {
     "SM12": "Specialist Mathematics 1&2",
     "SM34": "Specialist Mathematics 3&4",
 }
+
+# A page with any of these markers starts a non-exercise section and
+# breaks exercise-continuation so its content isn't attributed to the previous exercise.
+CHAPTER_BREAK_RE = re.compile(
+    r'(?i)(?:chapter\s+\d+\s+review'
+    r'|multiple[-\s]*choice\s+questions'
+    r'|extended[-\s]*response\s+questions'
+    r'|technology[-\s]*free'
+    r'|technology[-\s]*active'
+    r'|short[-\s]*answer\s+questions'
+    r'|investigations?)'
+)
+
+EXERCISE_RE = re.compile(r'Exercise\s+(\d+[A-Za-z])', re.IGNORECASE)
 # ────────────────────────────────────────────────────────────────────────────
 
 
 EXTRACT_QUESTIONS_PROMPT = """You are indexing a VCE Mathematical Methods textbook.
 This image shows one or more pages from an exercise section.
 
-Extract EVERY numbered question visible on this page.
-For each question return:
-- question_number: the integer question number (e.g. 1, 2, 3)
-- main_text: the overall question stem (e.g. "Factorise each of the following:").
-  If there is no stem and the question is just a list of parts, use "".
-- parts: an object mapping sub-part labels (a, b, c, ...) to their content.
-  Each part must have:
-    "text": the sub-part text (math as plain text, e.g. "x^2 - 5x + 6")
-    "bbox": [y1, x1, y2, x2] bounding box in POINTS (0,0 = top-left of the page)
-            for any diagram/graph associated with this part. null if no diagram.
-  If the question has no sub-parts, use an empty object {}.
-- has_diagram: true if ANY part of the question contains a graph or diagram.
+Extract EVERY numbered question visible on the page.
 
-Return ONLY a JSON array (no markdown fences), like:
+For each question return an object with:
+- "question_number": integer (e.g. 1, 2, 3)
+- "main_text": the overall question stem (e.g. "Solve each of the following:").
+  Use "" if the question has no stem and jumps straight into parts.
+- "parts": object mapping sub-part labels to part objects. Use {} if no sub-parts.
+
+Each part object has:
+- "text": the text of that sub-part as plain text. Write math inline: "x^2 - 5x + 6".
+- "subparts" (OPTIONAL): include ONLY if that part has further nested sub-parts
+  (labelled with roman numerals i, ii, iii, iv, …). Maps each nested label to an
+  object with "text".
+
+Return ONLY a JSON array (no markdown fences, no commentary). Example:
 [
   {
     "question_number": 1,
-    "main_text": "Factorise each of the following:",
+    "main_text": "Solve each of the following for x:",
     "parts": {
-      "a": {"text": "x^2 - 5x + 6", "bbox": null},
-      "b": {"text": "2x^2 + 3x - 2", "bbox": null}
-    },
-    "has_diagram": false
+      "a": {"text": "x + 3 = 6"},
+      "b": {"text": "x - 3 = 6"}
+    }
   },
   {
     "question_number": 2,
-    "main_text": "Solve for x:",
-    "parts": {},
-    "has_diagram": false
+    "main_text": "$48 is divided among three students A, B and C. If B receives three times as much as A, and C twice as much as A, how much does each receive?",
+    "parts": {}
+  },
+  {
+    "question_number": 4,
+    "main_text": "",
+    "parts": {
+      "a": {"text": "Find the probability."},
+      "b": {
+        "text": "Prove each of the following:",
+        "subparts": {
+          "i": {"text": "n+m is even"},
+          "ii": {"text": "n+m+1 is odd"}
+        }
+      }
+    }
   }
 ]
 
-Include ONLY questions visible on this exact page. If none are visible, return [].
+Include ONLY questions visible on this exact page. Ignore chapter-review content,
+multiple-choice questions, or extended-response questions. If no numbered exercise
+questions are visible, return [].
 """
 
 EXTRACT_ANSWERS_PROMPT = """You are indexing the answers section of a VCE Mathematical Methods textbook.
-This image shows an answers page for Exercise {exercise}.
+This image shows an answers page. Find the section for Exercise {exercise} only.
 
-Extract every answer visible for Exercise {exercise}.
-For each answer return:
-- question_number: integer
-- parts: an object mapping sub-part labels (a, b, c, ...) to their answers.
-  Each part must have:
-    "answer": the answer text (math as plain text)
-    "bbox": [y1, x1, y2, x2] bounding box in POINTS for any diagram in the answer.
-             null if no diagram.
-  If the question has no sub-parts, use {"_": {"answer": "<full answer text>", "bbox": null}}.
-- has_diagram: true if the answer contains a graph or figure.
+The answers are printed in a COMPACT INLINE format. Each question starts with its
+number, then alternates part labels (a, b, c, ...) with their answers:
 
-Return ONLY a JSON array (no markdown fences), like:
+  1 a 3  b 9  c 1  d -8  e 5  f 2
+  2 a+b  b a-b  c b/a  d ab                 <- Q2 has sub-part letters too
+  3 a y=5  b t=5  c y=-3/2  d x=2
+
+When a single part has further NESTED sub-parts, they are labelled with roman
+numerals (i, ii, iii, iv, ...) listed inline after the part letter:
+
+  4 a i 210  ii 100  iii 10/21  iv 10/21    <- Q4 part a has i–iv
+  4 b i (n+m)(n+m-1)(n+m-2)(m+m-3)/24  ii mn(m-1)(n-1)/4  iii n = 4, 6, 8 or 10
+
+Questions with NO sub-parts have the full answer right after the number:
+
+  14 30, 6
+  15 1.3775 m^2
+
+Parse every question and sub-part carefully. DO NOT confuse part labels
+(a, b, c, i, ii) with answer values.
+
+For each question return:
+- "question_number": integer
+- "parts": object mapping part labels to answer data. Each value is ONE of:
+    • a string — the direct answer for that part (e.g. "3", "x = 5", "b/a")
+    • an object {"subparts": {...}} — when the part itself has nested answers
+      (keys are roman numerals, values are answer strings)
+- For questions with no sub-parts, use a single key "_" whose value is the full answer string.
+
+Return ONLY a JSON array (no markdown fences). Example:
 [
-  {
-    "question_number": 1,
-    "parts": {
-      "a": {"answer": "x = 2 or x = 3", "bbox": null},
-      "b": {"answer": "x = -2 or x = 1/2", "bbox": null}
-    },
-    "has_diagram": false
-  }
+  {"question_number": 1, "parts": {"a": "3", "b": "9", "c": "1", "d": "-8"}},
+  {"question_number": 2, "parts": {"a": "a+b", "b": "a-b", "c": "b/a", "d": "ab"}},
+  {"question_number": 4, "parts": {
+    "a": {"subparts": {"i": "210", "ii": "100", "iii": "10/21", "iv": "10/21"}},
+    "b": {"subparts": {"i": "(n+m)(n+m-1)(n+m-2)(m+m-3)/24", "ii": "mn(m-1)(n-1)/4", "iii": "n = 4, 6, 8 or 10"}}
+  }},
+  {"question_number": 14, "parts": {"_": "30, 6"}}
 ]
 
-If no answers for Exercise {exercise} are visible on this page, return [].
+Include ONLY answers that explicitly belong to Exercise {exercise}. Ignore answers
+for any other exercise, chapter review, multiple-choice, or extended-response
+section on this page. If Exercise {exercise} is not on this page, return [].
 """
 
+
+# ── Parsing helpers ─────────────────────────────────────────────────────────
+
+def parse_json_response(response: str) -> list:
+    """Parse a JSON array out of an LLM response. Tolerates markdown fences."""
+    text = response.strip()
+    if text.startswith("```"):
+        text = re.sub(r'^```(?:json)?\s*', '', text)
+        text = re.sub(r'\s*```\s*$', '', text)
+        text = text.strip()
+    try:
+        parsed = json.loads(text)
+        return parsed if isinstance(parsed, list) else []
+    except json.JSONDecodeError:
+        pass
+    start = text.find('[')
+    end   = text.rfind(']')
+    if start != -1 and end != -1 and end > start:
+        try:
+            parsed = json.loads(text[start:end + 1])
+            return parsed if isinstance(parsed, list) else []
+        except json.JSONDecodeError as e:
+            print(f"    [warn] Failed to parse JSON: {e}")
+    else:
+        print(f"    [warn] No JSON array found in response")
+    return []
+
+
+def exercise_sort_key(ex: str):
+    """Natural sort: '10A' comes after '9Z', not before '1B'."""
+    m = re.match(r'(\d+)([A-Za-z]+)', ex)
+    if not m:
+        return (99999, ex)
+    return (int(m.group(1)), m.group(2).upper())
+
+
+# ── Ollama / PDF rendering ──────────────────────────────────────────────────
 
 def page_to_base64(pdf_doc, page_num: int) -> str:
     """Render a PDF page to a base64-encoded PNG."""
@@ -127,31 +219,6 @@ def page_to_base64(pdf_doc, page_num: int) -> str:
     mat  = fitz.Matrix(RENDER_DPI / 72, RENDER_DPI / 72)
     pix  = page.get_pixmap(matrix=mat)
     return base64.b64encode(pix.tobytes("png")).decode()
-
-
-def crop_and_upload(supabase, pdf_doc, page_num: int, bbox: list, path: str) -> str | None:
-    """
-    Crop a region from a PDF page and upload it to Supabase Storage.
-    bbox: [y1, x1, y2, x2] in PDF points.
-    Returns the public URL, or None on failure.
-    """
-    try:
-        import fitz
-        page = pdf_doc[page_num]
-        # fitz.Rect is (x0, y0, x1, y1)
-        y1, x1, y2, x2 = bbox
-        rect = fitz.Rect(x1, y1, x2, y2)
-        mat  = fitz.Matrix(RENDER_DPI / 72, RENDER_DPI / 72)
-        pix  = page.get_pixmap(matrix=mat, clip=rect)
-        img_bytes = pix.tobytes("png")
-        supabase.storage.from_(STORAGE_BUCKET).upload(
-            path, img_bytes, {"content-type": "image/png", "upsert": "true"}
-        )
-        public_url = supabase.storage.from_(STORAGE_BUCKET).get_public_url(path)
-        return public_url
-    except Exception as e:
-        print(f"    [warn] Failed to crop/upload diagram: {e}")
-        return None
 
 
 def call_ollama_vision(prompt: str, image_b64: str) -> str:
@@ -165,111 +232,93 @@ def call_ollama_vision(prompt: str, image_b64: str) -> str:
         }],
         "stream": False,
     }
-    resp = requests.post(f"{OLLAMA_URL}/api/chat", json=payload, timeout=180)
-    resp.raise_for_status()
-    return resp.json()["message"]["content"].strip()
-
-
-def parse_json_response(text: str) -> list:
-    """Extract a JSON array from a model response, tolerating markdown fences."""
-    text = re.sub(r'^```(?:json)?\s*', '', text, flags=re.MULTILINE)
-    text = re.sub(r'\s*```$', '', text, flags=re.MULTILINE)
+    print(f"    [Ollama] Sending page to {OLLAMA_MODEL}... (this may take 1-3 mins)")
     try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        match = re.search(r'\[.*\]', text, re.DOTALL)
-        if match:
-            try:
-                return json.loads(match.group())
-            except json.JSONDecodeError:
-                pass
-        return []
+        resp = requests.post(f"{OLLAMA_URL}/api/chat", json=payload, timeout=600)
+        resp.raise_for_status()
+        content = resp.json()["message"]["content"].strip()
+        print(f"    [Ollama] Response received ({len(content)} chars)")
+        return content
+    except requests.exceptions.Timeout:
+        print(f"    [Error] Ollama timed out after 10 minutes.")
+        raise
+    except Exception as e:
+        print(f"    [Error] Ollama request failed: {e}")
+        raise
 
 
-def build_exercise_page_map(pdf_doc, start_page=0, end_page=None) -> dict:
+# ── Page-map builders ───────────────────────────────────────────────────────
+
+def find_answers_section_start(pdf_doc) -> int:
     """
-    Scan PDF text to build a map of exercise → list of page numbers.
-    Returns: {"1A": [44, 45], "1B": [46], ...}
+    Locate where the Answers section begins. We look for a page whose top text
+    contains a standalone 'Answers' heading (as opposed to a running header like
+    '806 Answers' which appears on every page of the answers section).
     """
-    total = len(pdf_doc)
-    end   = min(end_page or total, total)
-    print(f"\nScanning pages {start_page + 1}–{end} for exercise headings…")
-
-    exercise_map = {}
-    for page_num in range(start_page, end):
+    for page_num in range(len(pdf_doc)):
         text = pdf_doc[page_num].get_text()
-        for match in re.finditer(r'Exercise\s+(\d+[A-Za-z])', text, re.IGNORECASE):
-            ex = match.group(1).upper()
-            exercise_map.setdefault(ex, [])
-            if page_num not in exercise_map[ex]:
-                exercise_map[ex].append(page_num)
-        sys.stdout.write(f"\r  Page {page_num + 1}/{end}  found: {sorted(exercise_map.keys())}  ")
+        head = text[:500]
+        # Strict: 'Answers' on its own line, not preceded by digits
+        if re.search(r'(?m)^\s*Answers\s*$', head):
+            return page_num
+        if re.search(r'(?mi)^\s*Answers\s+to\s+Exercise', head):
+            return page_num
+    return len(pdf_doc)
+
+
+def _scan_exercise_pages(pdf_doc, start: int, end: int, label: str) -> dict:
+    """
+    Walk pages [start, end) and build {exercise_code: [page_num, ...]}.
+    A page with an 'Exercise XY' heading is assigned to XY. Pages without a
+    heading carry forward to the most recent exercise UNLESS the page contains
+    a chapter-review / technology-free / multiple-choice marker — those break
+    the chain so review content isn't attributed to the previous exercise.
+    """
+    exercise_map = {}
+    last_exercise = None
+    total = end - start
+    for page_num in range(start, end):
+        text = pdf_doc[page_num].get_text()
+
+        headings = [m.group(1).upper() for m in EXERCISE_RE.finditer(text)]
+        is_break = CHAPTER_BREAK_RE.search(text) is not None
+
+        if headings:
+            for ex in headings:
+                exercise_map.setdefault(ex, [])
+                if page_num not in exercise_map[ex]:
+                    exercise_map[ex].append(page_num)
+            # Use the last heading on the page as the continuation anchor.
+            # If a break marker also appears on this page AFTER the last heading,
+            # we can't easily tell order from text alone, so be conservative and
+            # reset the anchor so we don't over-extend into review content.
+            last_exercise = None if is_break else headings[-1]
+        elif is_break:
+            last_exercise = None
+        elif last_exercise is not None:
+            if page_num not in exercise_map[last_exercise]:
+                exercise_map[last_exercise].append(page_num)
+
+        done = page_num - start + 1
+        sys.stdout.write(f"\r  {label}: page {page_num + 1} ({done}/{total}) found {len(exercise_map)} exercises   ")
         sys.stdout.flush()
-
-    print(f"\n\nExercise page map ({len(exercise_map)} exercises):")
-    for ex, pages in sorted(exercise_map.items()):
-        print(f"  {ex}: pages {[p + 1 for p in pages]}")
-
+    sys.stdout.write("\n")
     return exercise_map
 
 
-def find_answers_pages(pdf_doc) -> dict:
-    """
-    Scan the back of the PDF for answers sections.
-    Returns: {"1A": [520], "1B": [520, 521], ...}
-    """
-    total   = len(pdf_doc)
-    start   = int(total * 0.80)
-    print(f"\nScanning pages {start + 1}–{total} for answers section…")
-
-    answer_map  = {}
-    in_answers  = False
-
-    for page_num in range(start, total):
-        text = pdf_doc[page_num].get_text()
-        if not in_answers and 'answers' in text.lower():
-            in_answers = True
-            print(f"  Answers section starts around page {page_num + 1}")
-        if not in_answers:
-            continue
-        for match in re.finditer(r'Exercise\s+(\d+[A-Za-z])', text, re.IGNORECASE):
-            ex = match.group(1).upper()
-            answer_map.setdefault(ex, [])
-            if page_num not in answer_map[ex]:
-                answer_map[ex].append(page_num)
-        sys.stdout.write(f"\r  Page {page_num + 1}/{total}  ")
-        sys.stdout.flush()
-
-    print(f"\n  Found answers for: {sorted(answer_map.keys())}")
-    return answer_map
+def build_exercise_page_map(pdf_doc, answers_start: int, start_page=0, end_page=None) -> dict:
+    end = min(end_page or answers_start, answers_start)
+    print(f"\nScanning pages {start_page + 1}–{end} for exercise headings (Questions Section)…")
+    return _scan_exercise_pages(pdf_doc, start_page, end, "Questions")
 
 
-def extract_questions_from_pages(pdf_doc, pages: list) -> list:
-    all_questions = {}
-    for page_num in pages:
-        img_b64  = page_to_base64(pdf_doc, page_num)
-        response = call_ollama_vision(EXTRACT_QUESTIONS_PROMPT, img_b64)
-        for item in parse_json_response(response):
-            qn = item.get("question_number")
-            if qn and qn not in all_questions:
-                item["_page_num"] = page_num
-                all_questions[qn] = item
-    return list(all_questions.values())
+def find_answers_pages(pdf_doc, answers_start: int) -> dict:
+    total = len(pdf_doc)
+    print(f"\nScanning pages {answers_start + 1}–{total} for Answers Section…")
+    return _scan_exercise_pages(pdf_doc, answers_start, total, "Answers")
 
 
-def extract_answers_from_pages(pdf_doc, exercise: str, pages: list) -> list:
-    all_answers = {}
-    prompt = EXTRACT_ANSWERS_PROMPT.replace("{exercise}", exercise)
-    for page_num in pages:
-        img_b64  = page_to_base64(pdf_doc, page_num)
-        response = call_ollama_vision(prompt, img_b64)
-        for item in parse_json_response(response):
-            qn = item.get("question_number")
-            if qn and qn not in all_answers:
-                item["_page_num"] = page_num
-                all_answers[qn] = item
-    return list(all_answers.values())
-
+# ── Supabase ────────────────────────────────────────────────────────────────
 
 def get_subject_id(supabase, subject_code: str) -> str:
     result = supabase.table("subjects").select("id").eq("code", subject_code).single().execute()
@@ -278,74 +327,203 @@ def get_subject_id(supabase, subject_code: str) -> str:
     return result.data["id"]
 
 
-def get_already_indexed(supabase, subject_id: str, exercise: str) -> set:
+def get_indexed_exercises(supabase, subject_id: str) -> set:
+    """Return set of exercise codes that already have any rows for this subject."""
     result = (
         supabase.table("textbook_questions")
-        .select("question_number")
+        .select("exercise")
+        .eq("subject_id", subject_id)
+        .execute()
+    )
+    return {row["exercise"] for row in result.data}
+
+
+def delete_exercise_rows(supabase, subject_id: str, exercise: str):
+    """Wipe all rows for a given exercise so --force can insert a clean set."""
+    (
+        supabase.table("textbook_questions")
+        .delete()
         .eq("subject_id", subject_id)
         .eq("exercise", exercise)
         .execute()
     )
-    return {row["question_number"] for row in result.data}
 
 
-def upload_questions(supabase, pdf_doc, subject_id: str, exercise: str, questions: list, answers: dict):
+# ── Tree merging (questions + answers share the same nested-part structure) ─
+
+def merge_subparts(existing: dict, new: dict) -> dict:
     """
-    Merge questions + answers by sub-part, crop any diagrams, then upsert to DB.
+    Merge two part-trees (as produced by Ollama). Existing wins on conflict.
+    Used both to merge items from multiple pages, and to merge question-parts
+    with answer-parts into a single final tree.
     """
+    merged = dict(existing) if existing else {}
+    for label, new_val in (new or {}).items():
+        if label not in merged:
+            merged[label] = new_val
+            continue
+        existing_val = merged[label]
+        # If either side is a non-dict (plain answer string), don't merge deeper.
+        if not isinstance(existing_val, dict) or not isinstance(new_val, dict):
+            continue
+        # Merge optional nested subparts
+        if "subparts" in existing_val or "subparts" in new_val:
+            e_sub = existing_val.get("subparts", {}) if isinstance(existing_val.get("subparts"), dict) else {}
+            n_sub = new_val.get("subparts", {})      if isinstance(new_val.get("subparts"),      dict) else {}
+            existing_val["subparts"] = merge_subparts(e_sub, n_sub)
+        # Fill missing fields from new
+        for k in ("text", "answer"):
+            if k in new_val and not existing_val.get(k):
+                existing_val[k] = new_val[k]
+    return merged
+
+
+def merge_question_items(existing: dict, new: dict):
+    """Merge two extractions for the same question_number (across pages)."""
+    if not existing.get("main_text") and new.get("main_text"):
+        existing["main_text"] = new["main_text"]
+    existing["parts"] = merge_subparts(existing.get("parts", {}), new.get("parts", {}))
+
+
+def merge_answer_items(existing: dict, new: dict):
+    existing["parts"] = merge_subparts(existing.get("parts", {}), new.get("parts", {}))
+
+
+# ── Extraction ──────────────────────────────────────────────────────────────
+
+def extract_questions_from_pages(pdf_doc, pages: list) -> dict:
+    all_questions = {}
+    for i, page_num in enumerate(pages):
+        print(f"  [Q {i+1}/{len(pages)}] Page {page_num + 1}…")
+        img_b64  = page_to_base64(pdf_doc, page_num)
+        response = call_ollama_vision(EXTRACT_QUESTIONS_PROMPT, img_b64)
+        items    = parse_json_response(response)
+        print(f"    [ok] parsed {len(items)} question(s)")
+        for item in items:
+            qn = item.get("question_number")
+            if not isinstance(qn, int):
+                continue
+            if qn in all_questions:
+                merge_question_items(all_questions[qn], item)
+            else:
+                all_questions[qn] = {
+                    "question_number": qn,
+                    "main_text":       item.get("main_text", "") or "",
+                    "parts":           item.get("parts", {}) or {},
+                }
+            stem = all_questions[qn].get("main_text", "")[:60]
+            print(f"      - Q{qn}: {stem}" + ("…" if len(stem) == 60 else ""))
+    return all_questions
+
+
+def extract_answers_from_pages(pdf_doc, exercise: str, pages: list) -> dict:
+    all_answers = {}
+    prompt = EXTRACT_ANSWERS_PROMPT.replace("{exercise}", exercise)
+    for i, page_num in enumerate(pages):
+        print(f"  [A {i+1}/{len(pages)}] Page {page_num + 1}…")
+        img_b64  = page_to_base64(pdf_doc, page_num)
+        response = call_ollama_vision(prompt, img_b64)
+        items    = parse_json_response(response)
+        print(f"    [ok] parsed {len(items)} answer block(s)")
+        for item in items:
+            qn = item.get("question_number")
+            if not isinstance(qn, int):
+                continue
+            if qn in all_answers:
+                merge_answer_items(all_answers[qn], item)
+            else:
+                all_answers[qn] = {
+                    "question_number": qn,
+                    "parts":           item.get("parts", {}) or {},
+                }
+            print(f"      - A{qn}")
+    return all_answers
+
+
+# ── Combine question+answer into final nested part tree ────────────────────
+
+def _normalize_answer_node(ap) -> dict:
+    """Turn a raw answer-tree value into a dict with possible 'answer'/'subparts'."""
+    if isinstance(ap, str):
+        return {"answer": ap}
+    if isinstance(ap, dict):
+        out = {}
+        if "answer" in ap and isinstance(ap["answer"], str):
+            out["answer"] = ap["answer"]
+        if "subparts" in ap and isinstance(ap["subparts"], dict):
+            out["subparts"] = {k: _normalize_answer_node(v) for k, v in ap["subparts"].items()}
+        return out
+    return {}
+
+
+def _normalize_question_node(qp) -> dict:
+    """Turn a raw question-tree value into a dict with possible 'text'/'subparts'."""
+    if isinstance(qp, str):
+        return {"text": qp}
+    if isinstance(qp, dict):
+        out = {}
+        if "text" in qp and isinstance(qp["text"], str):
+            out["text"] = qp["text"]
+        if "subparts" in qp and isinstance(qp["subparts"], dict):
+            out["subparts"] = {k: _normalize_question_node(v) for k, v in qp["subparts"].items()}
+        return out
+    return {}
+
+
+def combine_question_and_answer(q_parts: dict, a_parts: dict) -> dict:
+    """
+    Walk question-parts and answer-parts in parallel, producing a unified tree
+    where every node has the fields present: text, answer, subparts.
+    """
+    q_parts = q_parts or {}
+    a_parts = a_parts or {}
+    labels  = set(q_parts.keys()) | set(a_parts.keys())
+    out = {}
+    for label in sorted(labels):
+        q = _normalize_question_node(q_parts.get(label))
+        a = _normalize_answer_node(a_parts.get(label))
+        node = {}
+        if q.get("text"):
+            node["text"] = q["text"]
+        if a.get("answer"):
+            node["answer"] = a["answer"]
+        q_sub = q.get("subparts") or {}
+        a_sub = a.get("subparts") or {}
+        if q_sub or a_sub:
+            node["subparts"] = combine_question_and_answer(q_sub, a_sub)
+        out[label] = node
+    return out
+
+
+# ── Upload ──────────────────────────────────────────────────────────────────
+
+def upload_questions(supabase, subject_id: str, exercise: str, questions: dict, answers: dict):
     rows = []
-    for q in questions:
-        qn       = q.get("question_number")
-        q_page   = q.get("_page_num")
-        ans_data = answers.get(qn, {})
-        a_page   = ans_data.get("_page_num")
+    for qn, q in sorted(questions.items()):
+        a = answers.get(qn, {})
+        q_parts = q.get("parts", {}) or {}
+        a_parts = a.get("parts", {}) or {}
 
-        q_parts = q.get("parts", {})
-        a_parts = ans_data.get("parts", {})
-
-        # Merge question parts with answer parts
-        merged_parts = {}
-        all_labels = sorted(set(list(q_parts.keys()) + list(a_parts.keys())))
-
-        for label in all_labels:
-            qp = q_parts.get(label, {})
-            ap = a_parts.get(label, {})
-
-            part_entry = {
-                "text":   qp.get("text", ""),
-                "answer": ap.get("answer", ""),
-            }
-
-            # Crop question diagram if bbox provided
-            if q_page is not None and qp.get("bbox"):
-                path = f"{subject_id}/{exercise}/q{qn}_{label}_q.png"
-                url  = crop_and_upload(supabase, pdf_doc, q_page, qp["bbox"], path)
-                if url:
-                    part_entry["image"] = url
-
-            # Crop answer diagram if bbox provided
-            if a_page is not None and ap.get("bbox"):
-                path = f"{subject_id}/{exercise}/q{qn}_{label}_a.png"
-                url  = crop_and_upload(supabase, pdf_doc, a_page, ap["bbox"], path)
-                if url:
-                    part_entry["answer_image"] = url
-
-            merged_parts[label] = part_entry
-
-        # Handle no-parts answers stored under "_" sentinel
+        # For questions with no sub-parts, the answer lives under the "_" sentinel.
         answer_text = ""
-        if not q_parts and "_" in a_parts:
-            answer_text = a_parts["_"].get("answer", "")
+        if not q_parts and isinstance(a_parts, dict):
+            under = a_parts.get("_")
+            if isinstance(under, str):
+                answer_text = under
+            elif isinstance(under, dict):
+                answer_text = under.get("answer", "") if isinstance(under.get("answer"), str) else ""
+
+        # Build the nested tree (excluding the "_" sentinel which is mirrored in answer_text)
+        a_parts_for_tree = {k: v for k, v in a_parts.items() if k != "_"}
+        parts_tree = combine_question_and_answer(q_parts, a_parts_for_tree)
 
         rows.append({
             "subject_id":      subject_id,
             "exercise":        exercise,
             "question_number": qn,
-            "question_text":   q.get("main_text", ""),
-            "question_image":  None,
+            "question_text":   q.get("main_text", "") or "",
             "answer_text":     answer_text,
-            "answer_image":    None,
-            "parts":           merged_parts,
+            "parts":           parts_tree,
         })
 
     if rows:
@@ -354,15 +532,20 @@ def upload_questions(supabase, pdf_doc, subject_id: str, exercise: str, question
         ).execute()
 
 
+# ── Main ────────────────────────────────────────────────────────────────────
+
 def main():
     parser = argparse.ArgumentParser(description="Index a VCE Math textbook into SUPsmasher")
-    parser.add_argument("--subject",    required=True, choices=list(SUBJECT_CODES.keys()),
-                        help="Subject code: MM12, MM34, SM12, SM34")
-    parser.add_argument("--pdf",        required=True, help="Path to the PDF file")
-    parser.add_argument("--exercises",  nargs="+",     help="Only process these exercises (e.g. 1A 1B)")
-    parser.add_argument("--start-page", type=int, default=0)
-    parser.add_argument("--end-page",   type=int, default=None)
+    parser.add_argument("--subject",      required=True, choices=list(SUBJECT_CODES.keys()))
+    parser.add_argument("--pdf",          required=True, help="Path to the PDF file")
+    parser.add_argument("--exercises",    nargs="+",     help="Only process these exercises (e.g. 1A 1B)")
+    parser.add_argument("--start-page",   type=int, default=0)
+    parser.add_argument("--end-page",     type=int, default=None)
+    parser.add_argument("--answers-page", type=int, default=None,
+                        help="1-indexed page where the Answers section starts (auto-detected if omitted)")
     parser.add_argument("--ollama-model", default=None, help="Override Ollama model name")
+    parser.add_argument("--force", action="store_true",
+                        help="Delete and re-index exercises that are already indexed")
     args = parser.parse_args()
 
     if not SUPABASE_KEY:
@@ -391,44 +574,60 @@ def main():
 
     print(f"PDF loaded: {len(pdf_doc)} pages | Subject ID: {subject_id}\n")
 
-    exercise_map     = build_exercise_page_map(pdf_doc, args.start_page, args.end_page)
-    answer_map       = find_answers_pages(pdf_doc)
-    target_exercises = args.exercises or sorted(exercise_map.keys())
+    if args.answers_page is not None:
+        answers_start = args.answers_page - 1
+        print(f"Answers section start: page {args.answers_page} (from --answers-page)")
+    else:
+        answers_start = find_answers_section_start(pdf_doc)
+        if answers_start >= len(pdf_doc):
+            print("No 'Answers' heading detected — treating entire PDF as questions section.")
+        else:
+            print(f"Answers section detected at page {answers_start + 1}")
+
+    exercise_map = build_exercise_page_map(pdf_doc, answers_start, args.start_page, args.end_page)
+    answer_map   = find_answers_pages(pdf_doc, answers_start)
+
+    target_exercises = args.exercises or sorted(exercise_map.keys(), key=exercise_sort_key)
+    target_exercises = [ex.upper() for ex in target_exercises]
+    already = get_indexed_exercises(supabase, subject_id)
 
     print(f"\nIndexing {len(target_exercises)} exercises: {target_exercises}\n")
 
     for exercise in target_exercises:
-        exercise = exercise.upper()
-        q_pages  = exercise_map.get(exercise, [])
-        a_pages  = answer_map.get(exercise, [])
+        q_pages = exercise_map.get(exercise, [])
+        a_pages = answer_map.get(exercise, [])
 
         if not q_pages:
             print(f"[{exercise}] No question pages found — skipping")
             continue
 
-        already = get_already_indexed(supabase, subject_id, exercise)
         print(f"[{exercise}] Q pages: {[p+1 for p in q_pages]}  "
               f"A pages: {[p+1 for p in a_pages]}  "
-              f"Already indexed: {len(already)}")
+              f"Already indexed: {exercise in already}")
 
-        print(f"[{exercise}] Extracting questions via {OLLAMA_MODEL}…")
-        questions     = extract_questions_from_pages(pdf_doc, q_pages)
-        new_questions = [q for q in questions if q["question_number"] not in already]
-        print(f"[{exercise}] Found {len(questions)} questions ({len(new_questions)} new)")
+        if exercise in already:
+            if not args.force:
+                print(f"[{exercise}] Already indexed — skipping (use --force to reindex)\n")
+                continue
+            print(f"[{exercise}] --force: deleting existing rows…")
+            delete_exercise_rows(supabase, subject_id, exercise)
 
-        if not new_questions:
-            print(f"[{exercise}] All already indexed — skipping\n")
+        print(f"[{exercise}] Extracting questions…")
+        questions = extract_questions_from_pages(pdf_doc, q_pages)
+        print(f"[{exercise}] Got {len(questions)} question(s)")
+
+        if not questions:
+            print(f"[{exercise}] No questions extracted — skipping\n")
             continue
 
-        answers_by_num = {}
+        answers = {}
         if a_pages:
-            print(f"[{exercise}] Extracting answers via {OLLAMA_MODEL}…")
-            raw_answers    = extract_answers_from_pages(pdf_doc, exercise, a_pages)
-            answers_by_num = {a["question_number"]: a for a in raw_answers}
-            print(f"[{exercise}] Found {len(answers_by_num)} answers")
+            print(f"[{exercise}] Extracting answers…")
+            answers = extract_answers_from_pages(pdf_doc, exercise, a_pages)
+            print(f"[{exercise}] Got {len(answers)} answer block(s)")
 
-        upload_questions(supabase, pdf_doc, subject_id, exercise, new_questions, answers_by_num)
-        print(f"[{exercise}] ✓ Uploaded {len(new_questions)} questions\n")
+        upload_questions(supabase, subject_id, exercise, questions, answers)
+        print(f"[{exercise}] ✓ Uploaded {len(questions)} question(s)\n")
 
     print("Indexing complete.")
 

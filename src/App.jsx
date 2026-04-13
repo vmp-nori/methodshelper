@@ -102,6 +102,15 @@ export default function App() {
       {/* Persistent wordmark — hidden on root */}
       <Wordmark />
 
+      {/* Mobile: fixed dark strip behind the wordmark so scrolling content doesn't bleed through */}
+      {isMobile && <div style={{
+        position: 'fixed', top: 0, left: 0, right: 0,
+        height: 64,
+        background: '#0e0e0e',
+        zIndex: 940,
+        pointerEvents: 'none',
+      }} />}
+
       {/* Floating report button */}
       <button
         onClick={() => openReport()}

@@ -11,16 +11,6 @@ function getParts(question) {
   return Object.keys(question.parts).sort().map(k => ({ label: k, ...question.parts[k] }))
 }
 
-function useTimer() {
-  const [seconds, setSeconds] = useState(0)
-  useEffect(() => {
-    const id = setInterval(() => setSeconds(s => s + 1), 1000)
-    return () => clearInterval(id)
-  }, [])
-  const mm = String(Math.floor(seconds / 60)).padStart(2, '0')
-  const ss = String(seconds % 60).padStart(2, '0')
-  return `${mm}:${ss}`
-}
 
 export default function Session({ onReport }) {
   const location  = useLocation()
@@ -52,7 +42,6 @@ function SessionInner({ config, onReport, navigate }) {
   const [error, setError]               = useState(null)
   const [fadeKey, setFadeKey]           = useState(0)
   const [panelOpen, setPanelOpen]       = useState(false)
-  const timer                           = useTimer()
   const isMobile = useIsMobile()
 
   useEffect(() => {
@@ -186,17 +175,6 @@ function SessionInner({ config, onReport, navigate }) {
               </button>
             )}
 
-            {/* Timer */}
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              background: '#131313', border: '1px solid rgba(72,72,72,0.15)',
-              borderRadius: 9999, padding: isMobile ? '6px 10px' : '6px 14px',
-            }}
-            onClick={e => e.stopPropagation()}
-            >
-              <span style={{ fontSize: 11, color: '#c799ff' }}>⏱</span>
-              <span style={{ color: '#e7e5e5', fontSize: 12, fontFamily: 'Space Grotesk, sans-serif', fontWeight: 500 }}>{timer}</span>
-            </div>
           </div>
         </header>
 

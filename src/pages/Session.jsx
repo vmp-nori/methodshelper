@@ -21,7 +21,7 @@ function useTimer() {
   return `${mm}:${ss}`
 }
 
-export default function Session({ config, onBack }) {
+export default function Session({ config, onBack, onReport }) {
   const { topic, startExerciseIndex, skipEvery, skipOffset, endOnLast = false, subjectId } = config
 
   const [questionList, setQuestionList] = useState([])

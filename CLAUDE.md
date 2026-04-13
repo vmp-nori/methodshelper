@@ -73,14 +73,15 @@ Sub-parts (roman numerals) use the `subparts` key. Questions without sub-parts h
 
 ### Frontend structure
 
-- `App.jsx` — top-level router with three state vars: `subject`, `selectedTopic`, `sessionConfig`
+- `App.jsx` — top-level router with state vars: `subject`, `selectedTopic`, `sessionConfig`, `reportOpen`, `reportContext`. Routes via a `let page` pattern (not early returns). Renders a fixed floating report button (bottom-right) and `BugReportModal` on every page.
 - `pages/TextbookSelect.jsx` — 2×2 card grid; calls `onSelect(subject)`
 - `pages/TopicSelect.jsx` — pill-row topic list + right "Unit Plan" panel; calls `onSelect(topic)`. No sidebar — has its own SUPsmasher wordmark + "Change textbook" button in the top bar. Uses Space Grotesk font (loaded in `index.html`).
 - `pages/Home.jsx` — session config (exercise range + question filter + start); receives `topic` prop directly. Contains inline `ExerciseDropdown` component (animated custom dropdown). Has four skip-filter options (All / Every other / Every third / End on last).
-- `pages/Session.jsx` — main study loop; keyboard-driven (Space/Enter = advance, ←→ = navigate, Esc = back). Contains inline `QuestionPanel` component (right sidebar, 280px).
+- `pages/Session.jsx` — main study loop; keyboard-driven (Space/Enter = advance, ←→ = navigate, Esc = back). Contains inline `QuestionPanel` component (right sidebar, 280px). Accepts `onReport` prop from App.
 - `lib/questions.js` — all Supabase queries; `buildQuestionList(exercises, skipEvery, skipOffset, endOnLast)` applies the skip filter
 - `lib/math.jsx` — `<MathText>` component: parses `$...$` (inline) and `$$...$$` (display) LaTeX via KaTeX
 - `components/Sidebar.jsx` — icon nav used by `Session` only
+- `components/BugReportModal.jsx` — modal for reporting issues; type picker (6 options), optional description textarea, auto-captured context display. Submits via Supabase Edge Function `send-bug-report`. Triggered globally via the floating ⚑ button in `App.jsx`.
 
 ### Page routing flow
 

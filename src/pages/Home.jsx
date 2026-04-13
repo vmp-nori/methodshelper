@@ -51,21 +51,11 @@ function ExerciseDropdown({ exercises, selectedIndex, onSelect }) {
             if (!open) e.currentTarget.style.borderColor = 'rgba(72, 72, 72, 0.15)'
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontSize: '15px', color: '#c799ff', lineHeight: 1 }}>📖</span>
-            <span style={{ color: '#e7e5e5', fontSize: '13px', fontWeight: '500', fontFamily: 'Inter, sans-serif' }}>
-              Exercise {currentEx?.exercise} — {questionsCount} Q
-            </span>
-          </div>
-          <span style={{
-            color: '#9f9d9d',
-            fontSize: '14px',
-            display: 'inline-block',
-            transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
-            transition: 'transform 0.15s ease',
-            lineHeight: 1,
-          }}>
-            ⌄
+          <span style={{ color: '#e7e5e5', fontSize: '13px', fontWeight: '500', fontFamily: 'Inter, sans-serif' }}>
+            Exercise {currentEx?.exercise}
+          </span>
+          <span style={{ color: '#c799ff', fontSize: '11px', fontFamily: 'Inter, sans-serif' }}>
+            {questionsCount} questions
           </span>
         </button>
 
@@ -106,11 +96,11 @@ function ExerciseDropdown({ exercises, selectedIndex, onSelect }) {
                   fontFamily: 'Inter, sans-serif', fontSize: '13px', fontWeight: '500',
                   color: isSelected ? '#c799ff' : '#e7e5e5',
                 }}>
-                  Exercise {ex.exercise} — {ex.questions.length} Q
+                  Exercise {ex.exercise}
                 </span>
-                {isSelected && (
-                  <span style={{ color: '#c799ff', fontSize: '13px', lineHeight: 1 }}>✓</span>
-                )}
+                <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '11px', color: '#c799ff' }}>
+                  {ex.questions.length} questions
+                </span>
               </div>
             )
           })}

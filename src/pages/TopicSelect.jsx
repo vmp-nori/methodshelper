@@ -77,38 +77,8 @@ export default function TopicSelect() {
         zIndex: 1,
       }}>
 
-        {/* Branding + back */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 56 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div style={{
-              width: 38, height: 38,
-              background: 'linear-gradient(135deg, #c799ff22, #7c3aed44)',
-              border: '1px solid rgba(199,153,255,0.2)',
-              borderRadius: 10,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontFamily: 'serif', fontSize: 18, fontWeight: 700, color: '#c799ff',
-            }}>
-              Σ
-            </div>
-            <div>
-              <span style={{
-                fontFamily: '"Space Grotesk", sans-serif',
-                fontSize: 17, fontWeight: 700,
-                color: '#e7e5e5', letterSpacing: '-0.02em',
-              }}>
-                SUPsmasher
-              </span>
-              <span style={{
-                display: 'block',
-                fontSize: 10, letterSpacing: '0.18em',
-                textTransform: 'uppercase', color: '#484848',
-                marginTop: 1,
-              }}>
-                {subject?.name ?? subjectCode}
-              </span>
-            </div>
-          </div>
-
+        {/* Top bar — space for the persistent wordmark on the left */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginBottom: 56 }}>
           <button
             onClick={() => navigate('/')}
             style={{

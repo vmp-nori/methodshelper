@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import Sidebar from '../components/Sidebar'
 import { MathText } from '../lib/math.jsx'
 import { buildQuestionList, fetchQuestionsForSession } from '../lib/questions'
 
@@ -122,29 +121,41 @@ function SessionInner({ config, onReport, navigate }) {
       style={{ display: 'flex', height: '100vh', background: '#0e0e0e', overflow: 'hidden' }}
       onClick={advance}
     >
-      <Sidebar activePage="session" />
-
       {/* ── Main question area ── */}
       <section
         key={fadeKey}
-        style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '40px 48px', overflow: 'hidden', position: 'relative' }}
+        style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '40px 56px', overflow: 'hidden', position: 'relative' }}
       >
         {/* Header */}
         <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '32px', flexShrink: 0 }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+            <p style={{
+              margin: '0 0 6px',
+              fontSize: 11, fontWeight: 700, letterSpacing: '0.18em',
+              textTransform: 'uppercase', color: '#c799ff',
+              fontFamily: 'Space Grotesk, sans-serif',
+            }}>
+              {topicName}
+            </p>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
               <span style={{
-                padding: '4px 12px', background: '#1f2020', borderRadius: 9999,
-                fontSize: 10, fontWeight: 700, letterSpacing: '0.15em',
-                textTransform: 'uppercase', color: '#c799ff',
                 fontFamily: 'Space Grotesk, sans-serif',
+                fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em',
+                color: '#e7e5e5', lineHeight: 1,
               }}>
-                {topicName}
+                Ex {currentMeta?.exercise}
               </span>
-              <span style={{ color: '#484848', fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase' }}>
-                Exercise {currentMeta?.exercise} &nbsp;·&nbsp; Q{currentMeta?.number}
+              <span style={{ color: '#484848', fontSize: 18, fontFamily: 'Space Grotesk, sans-serif', fontWeight: 500 }}>
+                ·
+              </span>
+              <span style={{
+                fontFamily: 'Space Grotesk, sans-serif',
+                fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em',
+                color: '#e7e5e5', lineHeight: 1,
+              }}>
+                Q{currentMeta?.number}
                 {hasParts && activePart && (
-                  <span style={{ color: '#c799ff' }}>&nbsp;{activePart.label})</span>
+                  <span style={{ color: '#c799ff' }}> {activePart.label})</span>
                 )}
               </span>
             </div>
@@ -498,40 +509,31 @@ function QuestionPanel({ questionList, currentIndex, phase, progressPct, topicNa
 
 function LoadingScreen() {
   return (
-    <div style={{ display: 'flex', height: '100vh', background: '#0e0e0e' }}>
-      <Sidebar activePage="session" />
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <p style={{ color: '#484848', fontSize: 14, fontFamily: 'Inter, sans-serif' }}>Loading questions…</p>
-      </div>
+    <div style={{ height: '100vh', background: '#0e0e0e', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <p style={{ color: '#484848', fontSize: 14, fontFamily: 'Inter, sans-serif' }}>Loading questions…</p>
     </div>
   )
 }
 
 function ErrorScreen({ error, onBack }) {
   return (
-    <div style={{ display: 'flex', height: '100vh', background: '#0e0e0e' }}>
-      <Sidebar activePage="session" />
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
-        <p style={{ color: '#ef4444', fontSize: 14, fontFamily: 'Inter, sans-serif' }}>{error}</p>
-        <button onClick={onBack} style={{ color: '#484848', fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
-          ← Back
-        </button>
-      </div>
+    <div style={{ height: '100vh', background: '#0e0e0e', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+      <p style={{ color: '#ef4444', fontSize: 14, fontFamily: 'Inter, sans-serif' }}>{error}</p>
+      <button onClick={onBack} style={{ color: '#484848', fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+        ← Back
+      </button>
     </div>
   )
 }
 
 function EmptyScreen({ onBack }) {
   return (
-    <div style={{ display: 'flex', height: '100vh', background: '#0e0e0e' }}>
-      <Sidebar activePage="session" />
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-        <p style={{ color: '#484848', fontSize: 14, fontFamily: 'Inter, sans-serif' }}>No questions found for this selection.</p>
-        <p style={{ color: '#333', fontSize: 12, fontFamily: 'Inter, sans-serif' }}>Run the indexing script to populate the database.</p>
-        <button onClick={onBack} style={{ color: '#484848', fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', marginTop: 8, fontFamily: 'Inter, sans-serif' }}>
-          ← Back
-        </button>
-      </div>
+    <div style={{ height: '100vh', background: '#0e0e0e', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+      <p style={{ color: '#484848', fontSize: 14, fontFamily: 'Inter, sans-serif' }}>No questions found for this selection.</p>
+      <p style={{ color: '#333', fontSize: 12, fontFamily: 'Inter, sans-serif' }}>Run the indexing script to populate the database.</p>
+      <button onClick={onBack} style={{ color: '#484848', fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', marginTop: 8, fontFamily: 'Inter, sans-serif' }}>
+        ← Back
+      </button>
     </div>
   )
 }

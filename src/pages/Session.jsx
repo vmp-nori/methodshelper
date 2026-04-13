@@ -6,9 +6,30 @@ import { useIsMobile } from '../lib/hooks'
 
 const PHASE = { QUESTION: 'q', ANSWER: 'a' }
 
-function getParts(question) {
+function getAllParts(question) {
   if (!question?.parts || Object.keys(question.parts).length === 0) return []
   return Object.keys(question.parts).sort().map(k => ({ label: k, ...question.parts[k] }))
+}
+
+function shouldIncludePart(partIndex, totalParts, skipEvery = 1, skipOffset = 0, endOnLast = false) {
+  if (skipEvery === 1) return true
+
+  if (endOnLast && skipEvery > 1) {
+    const lastIndex = totalParts - 1
+    const offset = lastIndex % skipEvery
+    return partIndex % skipEvery === offset
+  } else {
+    return (partIndex - skipOffset) % skipEvery === 0
+  }
+}
+
+function getParts(question, skipEvery = 1, skipOffset = 0, endOnLast = false) {
+  const allParts = getAllParts(question)
+
+  if (skipEvery === 1) return allParts
+
+  // Apply skip pattern to parts (a, b, c, d, e...)
+  return allParts.filter((_, i) => shouldIncludePart(i, allParts.length, skipEvery, skipOffset, endOnLast))
 }
 
 
@@ -46,29 +67,84 @@ function SessionInner({ config, onReport, navigate }) {
 
   useEffect(() => {
     const exFromStart = topic.exercises.slice(startExerciseIndex)
-    const list = buildQuestionList(exFromStart, skipEvery, skipOffset, endOnLast)
+    const list = buildQuestionList(exFromStart)
     setQuestionList(list)
     fetchQuestionsForSession(list, subjectId)
-      .then(data => { setQuestions(data); setIndex(0); setPhase(PHASE.QUESTION); setSubPartIndex(0) })
+      .then(data => {
+        setQuestions(data)
+        setIndex(0)
+        setPhase(PHASE.QUESTION)
+        // Find first part that matches filter for initial display
+        const firstQ = data[0]
+        if (firstQ) {
+          const allParts = getAllParts(firstQ)
+          let firstMatchingPart = 0
+          for (let i = 0; i < allParts.length; i++) {
+            if (shouldIncludePart(i, allParts.length, skipEvery, skipOffset, endOnLast)) {
+              firstMatchingPart = i
+              break
+            }
+          }
+          setSubPartIndex(firstMatchingPart)
+        } else {
+          setSubPartIndex(0)
+        }
+      })
       .catch(err => setError(err.message))
       .finally(() => setLoading(false))
   }, [topic, startExerciseIndex, skipEvery, skipOffset, endOnLast])
 
   const advance = useCallback(() => {
-    const parts = getParts(questions[index])
-    const hasParts = parts.length > 0
+    const allParts = getAllParts(questions[index])
+    const hasParts = allParts.length > 0
+
     if (phase === PHASE.QUESTION) {
       setPhase(PHASE.ANSWER)
-    } else if (hasParts && subPartIndex + 1 < parts.length) {
-      setSubPartIndex(i => i + 1)
-      setPhase(PHASE.QUESTION)
+    } else if (hasParts) {
+      // Find next part that matches the filter
+      let nextPartIndex = -1
+      for (let i = subPartIndex + 1; i < allParts.length; i++) {
+        if (shouldIncludePart(i, allParts.length, skipEvery, skipOffset, endOnLast)) {
+          nextPartIndex = i
+          break
+        }
+      }
+
+      if (nextPartIndex !== -1) {
+        setSubPartIndex(nextPartIndex)
+        setPhase(PHASE.QUESTION)
+      } else if (index + 1 < questions.length) {
+        // No more parts match filter, move to next question
+        const nextQuestion = questions[index + 1]
+        const nextAllParts = getAllParts(nextQuestion)
+        let firstMatchingPart = 0
+        for (let i = 0; i < nextAllParts.length; i++) {
+          if (shouldIncludePart(i, nextAllParts.length, skipEvery, skipOffset, endOnLast)) {
+            firstMatchingPart = i
+            break
+          }
+        }
+        setIndex(i => i + 1)
+        setSubPartIndex(firstMatchingPart)
+        setPhase(PHASE.QUESTION)
+        setFadeKey(k => k + 1)
+      }
     } else if (index + 1 < questions.length) {
+      const nextQuestion = questions[index + 1]
+      const nextAllParts = getAllParts(nextQuestion)
+      let firstMatchingPart = 0
+      for (let i = 0; i < nextAllParts.length; i++) {
+        if (shouldIncludePart(i, nextAllParts.length, skipEvery, skipOffset, endOnLast)) {
+          firstMatchingPart = i
+          break
+        }
+      }
       setIndex(i => i + 1)
-      setSubPartIndex(0)
+      setSubPartIndex(firstMatchingPart)
       setPhase(PHASE.QUESTION)
       setFadeKey(k => k + 1)
     }
-  }, [phase, index, subPartIndex, questions])
+  }, [phase, index, subPartIndex, questions, skipEvery, skipOffset, endOnLast])
 
   useEffect(() => {
     function onKey(e) {
@@ -76,16 +152,16 @@ function SessionInner({ config, onReport, navigate }) {
         e.preventDefault(); advance()
       } else if (e.code === 'ArrowRight') {
         e.preventDefault()
-        const parts = getParts(questions[index])
-        if (parts.length > 0 && subPartIndex + 1 < parts.length) {
+        const allParts = getAllParts(questions[index])
+        if (allParts.length > 0 && subPartIndex + 1 < allParts.length) {
           setSubPartIndex(i => i + 1); setPhase(PHASE.QUESTION)
         } else if (index + 1 < questions.length) {
           setIndex(i => i + 1); setSubPartIndex(0); setPhase(PHASE.QUESTION); setFadeKey(k => k + 1)
         }
       } else if (e.code === 'ArrowLeft') {
         e.preventDefault()
-        const parts = getParts(questions[index])
-        if (parts.length > 0 && subPartIndex > 0) {
+        const allParts = getAllParts(questions[index])
+        if (allParts.length > 0 && subPartIndex > 0) {
           setSubPartIndex(i => i - 1); setPhase(PHASE.QUESTION)
         } else if (index > 0) {
           setIndex(i => i - 1); setSubPartIndex(0); setPhase(PHASE.QUESTION); setFadeKey(k => k + 1)
@@ -133,7 +209,7 @@ function SessionInner({ config, onReport, navigate }) {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [advance, index, subPartIndex, questions, phase, navigate, questionList])
+  }, [advance, index, subPartIndex, questions, phase, navigate, questionList, skipEvery, skipOffset, endOnLast])
 
   if (loading) return <LoadingScreen />
   if (error)   return <ErrorScreen error={error} onBack={() => navigate(-1)} />
@@ -141,9 +217,11 @@ function SessionInner({ config, onReport, navigate }) {
 
   const current    = questions[index]
   const currentMeta = questionList[index]
-  const currentParts = getParts(current)
-  const hasParts   = currentParts.length > 0
-  const activePart = hasParts ? currentParts[subPartIndex] : null
+  const allParts = getAllParts(current)
+  const currentParts = getParts(current, skipEvery, skipOffset, endOnLast)
+  const hasParts   = allParts.length > 0
+  const activePart = hasParts ? allParts[subPartIndex] : null
+  const isActivePartIncluded = hasParts && shouldIncludePart(subPartIndex, allParts.length, skipEvery, skipOffset, endOnLast)
   const topicName  = topic.topic_name ?? topic.topic_code
   const progressPct = ((index + (phase === PHASE.ANSWER ? 1 : 0.5)) / questions.length) * 100
 
@@ -165,7 +243,7 @@ function SessionInner({ config, onReport, navigate }) {
         }}
       >
         {/* Header */}
-        <header style={{ display: isMobile ? 'flex' : 'none', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', flexShrink: 0 }}>
+        <header style={{ display: isMobile ? 'flex' : 'none', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', marginTop: '12px', flexShrink: 0 }}>
 
           {/* Mobile: panel toggle on left */}
           {isMobile && (
@@ -210,11 +288,11 @@ function SessionInner({ config, onReport, navigate }) {
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', maxWidth: 1200, width: '100%', alignSelf: 'center', overflow: 'hidden' }}>
 
           {/* ── Upper half: question (anchored to bottom of this half) ── */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', paddingBottom: isMobile ? 20 : 28, paddingTop: isMobile ? 0 : 40 }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', paddingBottom: isMobile ? 20 : 28, paddingTop: isMobile ? 0 : 40 }}>
 
             {/* Desktop-only breadcrumb moved from header */}
             {!isMobile && (
-              <div style={{ marginBottom: 20 }}>
+              <div style={{ marginBottom: 20, flexShrink: 0 }}>
                 <p style={{
                   margin: '0 0 6px',
                   fontSize: 11, fontWeight: 700, letterSpacing: '0.18em',
@@ -236,10 +314,13 @@ function SessionInner({ config, onReport, navigate }) {
               </div>
             )}
 
-            {/* Number + stem */}
-            <div style={{ marginBottom: hasParts || current?.question_text ? (isMobile ? 12 : 20) : 0 }}>
+            {/* Spacer — grows to push content to bottom */}
+            <div style={{ flex: 1 }} />
+
+            {/* Number + stem — positioned directly above sub-part card */}
+            <div style={{ marginBottom: isMobile ? 12 : 16, marginTop: 0, flexShrink: 0 }}>
               {current?.question_text ? (
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: isMobile ? 12 : 16 }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: isMobile ? 12 : 16 }}>
                   <span style={{
                     fontFamily: 'Space Grotesk, sans-serif', fontSize: isMobile ? 20 : 26, fontWeight: 500,
                     color: '#484848', flexShrink: 0, lineHeight: 1.5,
@@ -258,17 +339,19 @@ function SessionInner({ config, onReport, navigate }) {
               )}
             </div>
 
-            {/* Sub-part card */}
+            {/* Fixed sub-part card — label pinned, content expands downward only */}
             {hasParts && activePart && (
               <div style={{
                 background: '#171717', borderRadius: 12,
                 padding: isMobile ? '16px 20px' : '24px 28px',
                 border: '1px solid rgba(72,72,72,0.12)',
+                flexShrink: 0,
+                marginTop: 0,
               }}>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
                   <span style={{
                     fontFamily: 'Space Grotesk, sans-serif', fontSize: isMobile ? 18 : 22,
-                    color: '#c799ff', fontWeight: 300, flexShrink: 0,
+                    color: '#c799ff', fontWeight: 300, flexShrink: 0, lineHeight: 1, height: isMobile ? 26 : 32,
                   }}>
                     {activePart.label})
                   </span>
@@ -293,7 +376,7 @@ function SessionInner({ config, onReport, navigate }) {
             {/* Non-parts diagram */}
             {!hasParts && current?.question_image && (
               <img src={current.question_image} alt="Diagram"
-                style={{ maxWidth: '100%', maxHeight: isMobile ? 180 : 220, borderRadius: 8, marginTop: 16 }} />
+                style={{ maxWidth: '100%', maxHeight: isMobile ? 180 : 220, borderRadius: 8, marginTop: 16, flexShrink: 0 }} />
             )}
           </div>
 
@@ -369,16 +452,23 @@ function SessionInner({ config, onReport, navigate }) {
         }}
           onClick={e => e.stopPropagation()}
         >
-          {/* Sub-part progress dots */}
-          {hasParts && currentParts.length > 1 && (
-            <div style={{ display: 'flex', gap: 8 }}>
-              {currentParts.map((p, i) => (
-                <div key={p.label} style={{
-                  height: 4, width: i === subPartIndex ? 32 : 12, borderRadius: 2,
-                  background: i === subPartIndex ? '#c799ff' : '#252626',
-                  transition: 'all 0.2s ease',
-                }} />
-              ))}
+          {/* Sub-part progress dots — show all parts with prominent highlighting for active ones */}
+          {hasParts && (
+            <div style={{ display: 'flex', gap: 10, height: 8 }}>
+              {allParts.map((p, i) => {
+                const isActive = shouldIncludePart(i, allParts.length, skipEvery, skipOffset, endOnLast)
+                const isCurrent = i === subPartIndex
+                return (
+                  <div key={p.label} style={{
+                    height: isCurrent ? 8 : (isActive ? 6 : 4),
+                    width: isCurrent ? 40 : (isActive ? 24 : 10),
+                    borderRadius: 3,
+                    background: isCurrent ? '#c799ff' : (isActive ? 'rgba(199,153,255,0.6)' : '#252626'),
+                    transition: 'all 0.2s ease',
+                    opacity: isCurrent ? 1 : (isActive ? 1 : 0.5),
+                  }} />
+                )
+              })}
             </div>
           )}
 

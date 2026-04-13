@@ -92,25 +92,14 @@ export async function fetchQuestionsForSession(questionsToFetch, subjectId) {
 }
 
 /**
- * Expand a SUP exercises list into a flat question list,
- * applying a skip pattern.
- *
- * skipEvery: 1 = all questions, 2 = every other, 3 = every third
- * skipOffset: 0 = start from Q1, 1 = start from Q2 (for "odd/even" variants)
+ * Expand a SUP exercises list into a flat question list.
+ * Note: Filtering is now applied at the sub-part level, not the question level.
+ * This returns all question numbers in the exercises.
  */
-export function buildQuestionList(exercises, skipEvery = 1, skipOffset = 0, endOnLast = false) {
+export function buildQuestionList(exercises) {
   const list = []
   for (const ex of exercises) {
-    let qs
-    if (endOnLast && skipEvery > 1) {
-      // Pick the offset (0 or 1) that causes the last question to be included
-      const lastIndex = ex.questions.length - 1
-      const offset = lastIndex % skipEvery
-      qs = ex.questions.filter((_, i) => i % skipEvery === offset)
-    } else {
-      qs = ex.questions.filter((_, i) => (i - skipOffset) % skipEvery === 0)
-    }
-    for (const n of qs) {
+    for (const n of ex.questions) {
       list.push({ exercise: ex.exercise, number: n })
     }
   }

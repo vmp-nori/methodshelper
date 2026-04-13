@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { fetchSubjects } from '../lib/questions'
 
 const SUBJECT_META = {
@@ -38,7 +39,8 @@ const SUBJECT_META = {
 
 const TOPIC_COUNTS = { 'MM12': 11 }
 
-export default function TextbookSelect({ onSelect }) {
+export default function TextbookSelect() {
+  const navigate = useNavigate()
   const [subjects, setSubjects] = useState([])
   const [hovered, setHovered]   = useState(null)
   const [loading, setLoading]   = useState(true)
@@ -103,7 +105,7 @@ export default function TextbookSelect({ onSelect }) {
             lineHeight: 1.0, color: '#e7e5e5',
             margin: 0,
           }}>
-            ayo whats ur textbook fam
+            What's your textbook?
           </h1>
         </section>
 
@@ -127,7 +129,7 @@ export default function TextbookSelect({ onSelect }) {
                 <button
                   key={subject.id}
                   disabled={!hasData}
-                  onClick={() => hasData && onSelect(subject)}
+                  onClick={() => hasData && navigate(`/${subject.code}`, { state: { subject } })}
                   onMouseEnter={() => hasData && setHovered(subject.code)}
                   onMouseLeave={() => setHovered(null)}
                   style={{

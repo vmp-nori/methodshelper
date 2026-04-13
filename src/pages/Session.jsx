@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
 import { MathText } from '../lib/math.jsx'
 import { buildQuestionList, fetchQuestionsForSession } from '../lib/questions'
@@ -21,7 +22,25 @@ function useTimer() {
   return `${mm}:${ss}`
 }
 
-export default function Session({ config, onBack, onReport }) {
+export default function Session({ onReport }) {
+  const location  = useLocation()
+  const navigate  = useNavigate()
+  const config    = location.state?.config
+
+  // If arrived without session config (e.g. direct URL), go back to config page
+  if (!config) {
+    return (
+      <div style={{ height: '100vh', background: '#0e0e0e', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+        <p style={{ color: '#484848', fontSize: 14, fontFamily: 'Inter, sans-serif' }}>No session in progress.</p>
+        <button onClick={() => navigate(-1)} style={{ color: '#484848', fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>← Go back</button>
+      </div>
+    )
+  }
+
+  return <SessionInner config={config} onReport={onReport} navigate={navigate} />
+}
+
+function SessionInner({ config, onReport, navigate }) {
   const { topic, startExerciseIndex, skipEvery, skipOffset, endOnLast = false, subjectId } = config
 
   const [questionList, setQuestionList] = useState([])
@@ -80,15 +99,15 @@ export default function Session({ config, onBack, onReport }) {
         } else if (index > 0) {
           setIndex(i => i - 1); setSubPartIndex(0); setPhase(PHASE.QUESTION); setFadeKey(k => k + 1)
         }
-      } else if (e.code === 'Escape') onBack()
+      } else if (e.code === 'Escape') navigate(-1)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [advance, index, subPartIndex, questions, phase, onBack])
+  }, [advance, index, subPartIndex, questions, phase, navigate])
 
   if (loading) return <LoadingScreen />
-  if (error)   return <ErrorScreen error={error} onBack={onBack} />
-  if (questions.length === 0) return <EmptyScreen onBack={onBack} />
+  if (error)   return <ErrorScreen error={error} onBack={() => navigate(-1)} />
+  if (questions.length === 0) return <EmptyScreen onBack={() => navigate(-1)} />
 
   const current    = questions[index]
   const currentMeta = questionList[index]

@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
+import { fetchSubjects, fetchSupData } from '../lib/questions'
 
 function ExerciseDropdown({ exercises, selectedIndex, onSelect }) {
   const [open, setOpen] = useState(false)
@@ -117,13 +119,36 @@ const SKIP_OPTIONS = [
   { label: 'End on last',   desc: 'every other + last', skipEvery: 2, endOnLast: true },
 ]
 
-export default function Home({ subject, topic, onStart, onBack }) {
-  const [skipOption, setSkipOption] = useState(0)
+export default function Home() {
+  const { subjectCode, topicCode } = useParams()
+  const location  = useLocation()
+  const navigate  = useNavigate()
+
+  const [subject, setSubject]   = useState(location.state?.subject ?? null)
+  const [topic, setTopic]       = useState(location.state?.topic   ?? null)
+  const [loadError, setLoadError] = useState(null)
+
+  const [skipOption, setSkipOption]     = useState(0)
   const [startExercise, setStartExercise] = useState(0)
+
+  // Resolve subject + topic from URL if not in navigation state (direct URL / refresh)
+  useEffect(() => {
+    if (subject && topic) return
+    fetchSubjects()
+      .then(async all => {
+        const foundSubject = all.find(s => s.code === subjectCode)
+        if (!foundSubject) { setLoadError(`Unknown subject: ${subjectCode}`); return }
+        setSubject(foundSubject)
+        const foundTopic = await fetchSupData(topicCode, foundSubject.id)
+        setTopic(foundTopic)
+      })
+      .catch(err => setLoadError(err.message))
+  }, [subjectCode, topicCode, subject, topic])
 
   function handleStart() {
     const { label, desc, ...skip } = SKIP_OPTIONS[skipOption]
-    onStart({ topic, startExerciseIndex: startExercise, subjectId: subject.id, ...skip })
+    const config = { topic, startExerciseIndex: startExercise, subjectId: subject.id, ...skip }
+    navigate(`/${subjectCode}/${topicCode}/session`, { state: { config } })
   }
 
   const currentEx = topic.exercises?.[startExercise]
@@ -132,12 +157,25 @@ export default function Home({ subject, topic, onStart, onBack }) {
   const questionsRemaining = totalQuestions - questionsSkipped
   const progressPct = totalQuestions > 0 ? (questionsSkipped / totalQuestions) * 100 : 0
 
+  if (loadError) return (
+    <div style={{ height: '100vh', background: '#0e0e0e', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+      <p style={{ color: '#ef4444', fontSize: 14, fontFamily: 'Inter, sans-serif' }}>{loadError}</p>
+      <button onClick={() => navigate('/')} style={{ color: '#484848', fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>← Home</button>
+    </div>
+  )
+
+  if (!subject || !topic) return (
+    <div style={{ height: '100vh', background: '#0e0e0e', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <p style={{ color: '#484848', fontSize: 14, fontFamily: 'Inter, sans-serif' }}>Loading…</p>
+    </div>
+  )
+
   return (
     <div style={{ background: '#0e0e0e', height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', paddingLeft: '24px', paddingRight: '24px', overflowY: 'auto' }}>
       {/* Back Link */}
       <div style={{ width: '100%', maxWidth: '700px', marginBottom: '24px' }}>
         <button
-          onClick={onBack}
+          onClick={() => navigate(-1)}
           style={{
             display: 'flex', alignItems: 'center', gap: '8px',
             background: 'none', border: 'none', cursor: 'pointer',

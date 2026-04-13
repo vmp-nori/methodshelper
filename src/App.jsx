@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Routes, Route } from 'react-router-dom'
 import TextbookSelect from './pages/TextbookSelect'
 import TopicSelect from './pages/TopicSelect'
 import Home from './pages/Home'
@@ -6,10 +7,7 @@ import Session from './pages/Session'
 import BugReportModal from './components/BugReportModal'
 
 export default function App() {
-  const [subject, setSubject]             = useState(null)
-  const [selectedTopic, setSelectedTopic] = useState(null)
-  const [sessionConfig, setSessionConfig] = useState(null)
-  const [reportOpen, setReportOpen]       = useState(false)
+  const [reportOpen, setReportOpen]   = useState(false)
   const [reportContext, setReportContext] = useState(null)
 
   function openReport(ctx = null) {
@@ -17,41 +15,16 @@ export default function App() {
     setReportOpen(true)
   }
 
-  let page
-  if (sessionConfig) {
-    page = (
-      <Session
-        config={sessionConfig}
-        onBack={() => setSessionConfig(null)}
-        onReport={openReport}
-      />
-    )
-  } else if (subject && selectedTopic) {
-    page = (
-      <Home
-        subject={subject}
-        topic={selectedTopic}
-        onStart={setSessionConfig}
-        onBack={() => setSelectedTopic(null)}
-      />
-    )
-  } else if (subject) {
-    page = (
-      <TopicSelect
-        subject={subject}
-        onSelect={setSelectedTopic}
-        onBack={() => setSubject(null)}
-      />
-    )
-  } else {
-    page = <TextbookSelect onSelect={setSubject} />
-  }
-
   return (
     <>
-      {page}
+      <Routes>
+        <Route path="/"                                  element={<TextbookSelect />} />
+        <Route path="/:subjectCode"                      element={<TopicSelect />} />
+        <Route path="/:subjectCode/:topicCode"           element={<Home />} />
+        <Route path="/:subjectCode/:topicCode/session"   element={<Session onReport={openReport} />} />
+      </Routes>
 
-      {/* Floating report button */}
+      {/* Floating report button — visible on every page */}
       <button
         onClick={() => openReport()}
         title="Report an issue"
@@ -82,7 +55,6 @@ export default function App() {
         ⚑
       </button>
 
-      {/* Bug report modal */}
       {reportOpen && (
         <BugReportModal
           context={reportContext}

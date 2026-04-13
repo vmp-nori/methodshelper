@@ -85,12 +85,18 @@ Sub-parts (roman numerals) use the `subparts` key. Questions without sub-parts h
 
 ### Page routing flow
 
+React Router (`react-router-dom`) handles all navigation. URL structure:
+
 ```
-TextbookSelect → TopicSelect → Home (session config) → Session
-     subject         topic          sessionConfig
+/                              → TextbookSelect
+/:subjectCode                  → TopicSelect   (e.g. /MM12)
+/:subjectCode/:topicCode       → Home          (e.g. /MM12/1)
+/:subjectCode/:topicCode/session → Session     (e.g. /MM12/1/session)
 ```
 
-`App.jsx` gates: no subject → TextbookSelect; subject but no topic → TopicSelect; both → Home; sessionConfig set → Session.
+`vercel.json` rewrites all paths to `index.html` so deep links and refreshes work.
+
+Each page receives subject/topic objects via React Router navigation state (`navigate(path, { state: { subject, topic } })`). If state is absent (direct URL / browser refresh), pages fetch data from Supabase using the URL params as keys. Session redirects back if config state is missing (config can't be reconstructed from URL).
 
 ### Session config object
 

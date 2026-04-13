@@ -1,35 +1,54 @@
 import { useEffect, useRef, useState } from 'react'
-import { fetchTopics } from '../lib/questions'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
+import { fetchSubjects, fetchTopics } from '../lib/questions'
 
-export default function TopicSelect({ subject, onSelect, onBack }) {
+export default function TopicSelect() {
+  const { subjectCode } = useParams()
+  const location        = useLocation()
+  const navigate        = useNavigate()
+
+  const [subject, setSubject] = useState(location.state?.subject ?? null)
   const [topics, setTopics]   = useState([])
   const [hovered, setHovered] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState(null)
-  const activeItemRef  = useRef(null)
-  const sidebarScrollRef = useRef(null)
-  const scrollTimerRef = useRef(null)
+  const activeItemRef    = useRef(null)
+  const scrollTimerRef   = useRef(null)
 
+  // Resolve subject from URL code if not passed via navigation state (e.g. direct URL / refresh)
   useEffect(() => {
-    if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current)
-    if (!activeItemRef.current) return
+    if (subject) return
+    fetchSubjects()
+      .then(all => {
+        const found = all.find(s => s.code === subjectCode)
+        if (found) setSubject(found)
+        else setError(`Unknown subject: ${subjectCode}`)
+      })
+      .catch(err => setError(err.message))
+  }, [subjectCode, subject])
 
-    // Single scroll fired after the grid-template-rows animation (250ms).
-    // At that point the item has its full expanded height, so scrollIntoView
-    // correctly accounts for it — no double-scroll stutter.
-    scrollTimerRef.current = setTimeout(() => {
-      activeItemRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
-    }, 260)
-
-    return () => clearTimeout(scrollTimerRef.current)
-  }, [hovered])
-
+  // Fetch topics once subject is resolved
   useEffect(() => {
+    if (!subject) return
+    setLoading(true)
     fetchTopics(subject.id)
       .then(setTopics)
       .catch(err => setError(err.message))
       .finally(() => setLoading(false))
-  }, [subject.id])
+  }, [subject])
+
+  useEffect(() => {
+    if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current)
+    if (!activeItemRef.current) return
+    scrollTimerRef.current = setTimeout(() => {
+      activeItemRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    }, 260)
+    return () => clearTimeout(scrollTimerRef.current)
+  }, [hovered])
+
+  function handleSelect(topic) {
+    navigate(`/${subjectCode}/${topic.topic_code}`, { state: { subject, topic } })
+  }
 
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: '#0e0e0e', position: 'relative' }}>
@@ -60,7 +79,6 @@ export default function TopicSelect({ subject, onSelect, onBack }) {
 
         {/* Branding + back */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 56 }}>
-          {/* SUPsmasher wordmark */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             <div style={{
               width: 38, height: 38,
@@ -86,14 +104,13 @@ export default function TopicSelect({ subject, onSelect, onBack }) {
                 textTransform: 'uppercase', color: '#484848',
                 marginTop: 1,
               }}>
-                {subject.name}
+                {subject?.name ?? subjectCode}
               </span>
             </div>
           </div>
 
-          {/* Back */}
           <button
-            onClick={onBack}
+            onClick={() => navigate('/')}
             style={{
               background: 'none', border: '1px solid #1e1e1e', cursor: 'pointer',
               color: '#767575', fontSize: 12, letterSpacing: '0.1em',
@@ -113,7 +130,7 @@ export default function TopicSelect({ subject, onSelect, onBack }) {
             color: '#c799ff', fontSize: 10, letterSpacing: '0.2em',
             textTransform: 'uppercase', display: 'block', marginBottom: 14,
           }}>
-            {subject.code}
+            {subject?.code ?? subjectCode}
           </span>
           <h1 style={{
             fontFamily: '"Space Grotesk", sans-serif',
@@ -147,7 +164,7 @@ export default function TopicSelect({ subject, onSelect, onBack }) {
                   key={topic.topic_code}
                   onMouseEnter={() => setHovered(topic.topic_code)}
                   onMouseLeave={() => setHovered(null)}
-                  onClick={() => onSelect(topic)}
+                  onClick={() => handleSelect(topic)}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -210,7 +227,7 @@ export default function TopicSelect({ subject, onSelect, onBack }) {
                     </div>
 
                     <button
-                      onClick={e => { e.stopPropagation(); onSelect(topic) }}
+                      onClick={e => { e.stopPropagation(); handleSelect(topic) }}
                       style={{
                         padding: isHov ? '10px 28px' : '10px 14px',
                         borderRadius: 9999,
@@ -276,7 +293,7 @@ export default function TopicSelect({ subject, onSelect, onBack }) {
                 <div
                   key={topic.topic_code}
                   ref={isActive ? activeItemRef : null}
-                  onClick={() => onSelect(topic)}
+                  onClick={() => handleSelect(topic)}
                   style={{
                     borderLeft: `2px solid ${isActive ? '#c799ff' : 'rgba(72,72,72,0.3)'}`,
                     paddingLeft: 14,
@@ -308,12 +325,10 @@ export default function TopicSelect({ subject, onSelect, onBack }) {
                       </span>
                     )}
                   </div>
-                  {/* Collapsed: always-visible summary */}
                   <p style={{ fontSize: 11, color: '#484848', margin: 0 }}>
                     {topic.topic_code} · {topic.exercises?.length ?? 0} exercises
                   </p>
 
-                  {/* Expandable exercise list */}
                   <div style={{
                     display: 'grid',
                     gridTemplateRows: isActive && topic.exercises?.length > 0 ? '1fr' : '0fr',

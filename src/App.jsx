@@ -12,8 +12,8 @@ function Wordmark() {
   const navigate  = useNavigate()
   const isMobile = useIsMobile()
 
-  // Only show on sub-pages
-  if (location.pathname === '/') return null
+  // Only show on mobile sub-pages — desktop pages have their own headers
+  if (!isMobile || location.pathname === '/') return null
 
   // Best-effort subject name from navigation state
   const subject = location.state?.subject ?? location.state?.config?.subjectId ?? null

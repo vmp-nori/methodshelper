@@ -120,62 +120,72 @@ function SessionInner({ config, onReport, navigate }) {
           flex: 1, 
           display: 'flex', 
           flexDirection: 'column', 
-          padding: isMobile ? '24px 24px' : '40px 56px', 
+          padding: isMobile ? '72px 20px 20px 20px' : '40px 56px',
           overflow: 'hidden', 
           position: 'relative' 
         }}
       >
         {/* Header */}
         <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: isMobile ? '20px' : '32px', flexShrink: 0 }}>
-          <div>
-            <p style={{
-              margin: '0 0 6px',
-              fontSize: 11, fontWeight: 700, letterSpacing: '0.18em',
-              textTransform: 'uppercase', color: '#c799ff',
-              fontFamily: 'Space Grotesk, sans-serif',
-            }}>
-              {topicName}
-            </p>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-              <span style={{
+
+          {/* Desktop: details on left. Mobile: panel toggle on left */}
+          {isMobile ? (
+            <button style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 36, height: 36, flexShrink: 0,
+              background: '#131313', border: '1px solid rgba(72,72,72,0.15)',
+              borderRadius: 8, color: '#c799ff', fontSize: 14,
+            }}
+            onClick={e => { e.stopPropagation(); setPanelOpen(true) }}
+            >
+              ▦
+            </button>
+          ) : (
+            <div>
+              <p style={{
+                margin: '0 0 6px',
+                fontSize: 11, fontWeight: 700, letterSpacing: '0.18em',
+                textTransform: 'uppercase', color: '#c799ff',
                 fontFamily: 'Space Grotesk, sans-serif',
-                fontSize: isMobile ? 22 : 28, fontWeight: 700, letterSpacing: '-0.02em',
-                color: '#e7e5e5', lineHeight: 1,
               }}>
-                Ex {currentMeta?.exercise}
-              </span>
-              <span style={{ color: '#484848', fontSize: 18, fontFamily: 'Space Grotesk, sans-serif', fontWeight: 500 }}>
-                ·
-              </span>
-              <span style={{
-                fontFamily: 'Space Grotesk, sans-serif',
-                fontSize: isMobile ? 22 : 28, fontWeight: 700, letterSpacing: '-0.02em',
-                color: '#e7e5e5', lineHeight: 1,
-              }}>
-                Q{currentMeta?.number}
-                {hasParts && activePart && (
-                  <span style={{ color: '#c799ff' }}> {activePart.label})</span>
-                )}
-              </span>
+                {topicName}
+              </p>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+                <span style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: '#e7e5e5', lineHeight: 1 }}>
+                  Ex {currentMeta?.exercise}
+                </span>
+                <span style={{ color: '#484848', fontSize: 18, fontFamily: 'Space Grotesk, sans-serif', fontWeight: 500 }}>·</span>
+                <span style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: '#e7e5e5', lineHeight: 1 }}>
+                  Q{currentMeta?.number}
+                  {hasParts && activePart && <span style={{ color: '#c799ff' }}> {activePart.label})</span>}
+                </span>
+              </div>
             </div>
-          </div>
+          )}
 
-          <div style={{ display: 'flex', gap: 8 }}>
-            {/* List button for mobile */}
-            {isMobile && (
-              <button style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                width: 36, height: 36,
-                background: '#131313', border: '1px solid rgba(72,72,72,0.15)',
-                borderRadius: 8, color: '#c799ff', fontSize: 14
-              }}
-              onClick={e => { e.stopPropagation(); setPanelOpen(true) }}
-              >
-                ▦
-              </button>
-            )}
-
-          </div>
+          {/* Mobile: details on right */}
+          {isMobile && (
+            <div style={{ textAlign: 'right' }}>
+              <p style={{
+                margin: '0 0 4px',
+                fontSize: 10, fontWeight: 700, letterSpacing: '0.18em',
+                textTransform: 'uppercase', color: '#c799ff',
+                fontFamily: 'Space Grotesk, sans-serif',
+              }}>
+                {topicName}
+              </p>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, justifyContent: 'flex-end' }}>
+                <span style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em', color: '#e7e5e5', lineHeight: 1 }}>
+                  Ex {currentMeta?.exercise}
+                </span>
+                <span style={{ color: '#484848', fontSize: 14, fontFamily: 'Space Grotesk, sans-serif' }}>·</span>
+                <span style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em', color: '#e7e5e5', lineHeight: 1 }}>
+                  Q{currentMeta?.number}
+                  {hasParts && activePart && <span style={{ color: '#c799ff' }}> {activePart.label})</span>}
+                </span>
+              </div>
+            </div>
+          )}
         </header>
 
         {/* Question content — split into two fixed halves so nothing shifts on reveal */}

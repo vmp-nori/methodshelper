@@ -207,10 +207,10 @@ function SessionInner({ config, onReport, navigate }) {
         </header>
 
         {/* Question content — split into two fixed halves so nothing shifts on reveal */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', maxWidth: 1000, width: '100%', alignSelf: 'center', overflow: 'hidden' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', maxWidth: 1200, width: '100%', alignSelf: 'center', overflow: 'hidden' }}>
 
           {/* ── Upper half: question (anchored to bottom of this half) ── */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', paddingBottom: isMobile ? 20 : 28 }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', paddingBottom: isMobile ? 20 : 28, paddingTop: isMobile ? 0 : 40 }}>
 
             {/* Desktop-only breadcrumb moved from header */}
             {!isMobile && (

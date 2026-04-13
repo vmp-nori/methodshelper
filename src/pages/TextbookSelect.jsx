@@ -77,13 +77,27 @@ export default function TextbookSelect() {
           }}>
             Σ
           </div>
-          <span style={{
-            fontFamily: '"Space Grotesk", sans-serif',
-            fontSize: 16, fontWeight: 800,
-            color: '#e7e5e5', letterSpacing: '-0.03em',
-          }}>
-            SUPsmasher
-          </span>
+          <div style={{ display: 'flex', flexDirection: 'column', height: 32, justifyContent: 'space-between', padding: '2px 0' }}>
+            <span style={{
+              fontFamily: '"Space Grotesk", sans-serif',
+              fontSize: 16, fontWeight: 800,
+              color: '#e7e5e5', letterSpacing: '-0.03em',
+              lineHeight: 1,
+            }}>
+              SUPsmasher
+            </span>
+            <div style={{ marginLeft: -2, display: 'flex', alignItems: 'center' }}>
+              <span style={{
+                background: 'rgba(199,153,255,0.1)', color: '#c799ff',
+                padding: '2px 5px', borderRadius: 4,
+                fontSize: 8, fontWeight: 800, letterSpacing: '0.05em',
+                fontFamily: 'Inter, sans-serif',
+                lineHeight: 1,
+              }}>
+                BETA
+              </span>
+            </div>
+          </div>
         </div>
       </header>
 

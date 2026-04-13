@@ -57,34 +57,37 @@ function Wordmark() {
       </div>
 
       {/* Text */}
-      <div style={{ textAlign: 'left' }}>
+      <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', height: isMobile ? 32 : 36, justifyContent: 'space-between', padding: '2px 0' }}>
         <div style={{
           fontFamily: '"Space Grotesk", sans-serif',
           fontSize: isMobile ? 13 : 15, fontWeight: 800,
           color: '#e7e5e5', letterSpacing: '-0.025em',
-          lineHeight: 1.2,
+          lineHeight: 1,
         }}>
           SUPsmasher
         </div>
-        {label && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: -2 }}>
+          <span style={{ 
+            fontSize: isMobile ? 7 : 8, 
+            color: '#c799ff', 
+            background: 'rgba(199,153,255,0.1)', 
+            padding: '2px 5px', 
+            borderRadius: 4,
+            fontWeight: 800,
+            letterSpacing: '0.05em',
+            fontFamily: 'Inter, sans-serif',
+            lineHeight: 1,
+          }}>BETA</span>
+          {label && (
             <div style={{
               fontSize: isMobile ? 8 : 9, letterSpacing: '0.18em',
               textTransform: 'uppercase', color: '#484848',
+              lineHeight: 1,
             }}>
               {label}
             </div>
-            <span style={{ 
-              fontSize: isMobile ? 7 : 8, 
-              color: '#c799ff66', 
-              border: '1px solid rgba(199,153,255,0.2)', 
-              padding: '1px 4px', 
-              borderRadius: 3,
-              fontWeight: 700,
-              letterSpacing: '0.05em'
-            }}>BETA</span>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </button>
   )
@@ -144,11 +147,15 @@ export default function App() {
   const [reportOpen, setReportOpen]     = useState(false)
   const [reportContext, setReportContext] = useState(null)
   const isMobile = useIsMobile()
+  const location = useLocation()
 
   function openReport(ctx = null) {
     setReportContext(ctx)
     setReportOpen(true)
   }
+
+  const isRoot = location.pathname === '/'
+  const isSession = location.pathname.endsWith('/session')
 
   return (
     <>
@@ -166,7 +173,7 @@ export default function App() {
       <SocialLink />
 
       {/* Dark shield strip behind the wordmark so scrolling content doesn't bleed through */}
-      {location.pathname !== '/' && <div style={{
+      {!isRoot && !isSession && <div style={{
         position: 'fixed', top: 0, left: 0, right: 0,
         height: isMobile ? 64 : 80,
         background: '#0e0e0e',

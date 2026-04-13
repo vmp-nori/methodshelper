@@ -116,7 +116,7 @@ export default function TopicSelect() {
             color: '#acabaa', fontSize: isMobile ? 14 : 16, margin: 0,
             maxWidth: 500, lineHeight: 1.7, fontWeight: 300,
           }}>
-            Select a topic to begin your session.
+            Select your SUP to begin your session.
           </p>
         </header>
 

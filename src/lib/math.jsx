@@ -11,7 +11,7 @@ export function parseAndRenderMath(text) {
   const segments = []
   // Match $$...$$ first (display), then $...$
   // The $...$ pattern now handles escaped dollar signs \$
-  const pattern = /(\$\$[\s\S]+?\$\$|\$(?:\\\$|[^$\n])+?\$)/g
+  const pattern = /(\$\$[\s\S]+?\$\$|(?<!\\)\$(?:\\\$|[^$\n])+?(?<!\\)\$)/g
   let lastIndex = 0
   let match
 

@@ -2,7 +2,7 @@
 
 Shared project state for AI agents. Update this file whenever you complete a task, discover a bug, or change the backlog. Read this before starting any task.
 
-Last updated: 2026-04-13
+Last updated: 2026-04-16
 
 ---
 
@@ -15,16 +15,22 @@ Last updated: 2026-04-13
 - [x] Study session loop (question → answer reveal → next, with sub-part handling)
 - [x] KaTeX math rendering via `<MathText>` component
 - [x] Keyboard navigation: Space/Enter = advance, ←→ = navigate, Esc = back
+- [x] Gemini AI "Ask Gemini" button with step-by-step working UI
+- [x] Settings page for Gemini API key + model selection
 
 ### Data
 - [x] MM12: 1,117 questions across 128 exercises (1A–10F) imported into Supabase
 - [x] SUP data (topic → exercise mappings) migrated from nori.study for MM12
-- [ ] MM12 answers — not yet extracted/imported (`answer_text` and `parts[x].answer` are empty strings)
+- [x] MM12 answers — 654/1,117 extracted and imported via `scripts/import_answers.py`
+  - 445 questions with answer images only (no text answers — excluded by design)
+  - 73.3% coverage of extractable answers (445 image-only + 18 missing from Gemini)
+- [x] LaTeX rendering fixed in Supabase (957 answers wrapped with $...$ delimiters, 16+ multi-dollar fixes)
 - [ ] MM34, SM12, SM34 — no questions indexed yet
 
 ### Infrastructure
-- [x] Gemini Assistant — integrated Google Gemini Pro/Flash for live question help
-- [x] Settings page — allow users to store their own Gemini API key in `localStorage`
+- [x] Gemini Assistant — integrated Google Gemini Pro/Flash for step-by-step working via "Ask Gemini" button
+- [x] Settings page — users store Gemini API key + select model (stored in `localStorage`, not transmitted to backend)
+- [x] GeminiChat component — parses AI response into step cards with final answer highlighted
 - [x] Hosted on Vercel: https://supsmasher.vercel.app (alias) / https://methodshelper.vercel.app (canonical)
 - [x] Vercel env vars set: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
 - [x] `vercel.json` SPA rewrite (all paths → index.html)
@@ -48,7 +54,8 @@ Last updated: 2026-04-13
 ## Backlog (to be done)
 
 ### High priority
-- [ ] **Import MM12 answers** — run `scripts/import_answers.py` with `extracted_answers.json`.
+- [x] ~~**Import MM12 answers**~~ — Completed. 654 questions imported via `scripts/import_answers.py`.
+- [ ] **Test Gemini AI working-out feature** — Users with API key in Settings should see step-by-step solutions in Session.
 - [ ] **Deploy `send-bug-report` Supabase Edge Function** — `BugReportModal` calls `supabase.functions.invoke('send-bug-report')` but this function may not be deployed yet. Bug reports will silently fail until it is.
 - [ ] **Vercel alias automation** — currently `vercel alias set methodshelper.vercel.app supsmasher.vercel.app` must be re-run manually after every deploy. Set up Vercel Git integration or a proper custom domain to avoid this.
 

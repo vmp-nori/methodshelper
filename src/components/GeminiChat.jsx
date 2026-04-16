@@ -391,18 +391,6 @@ function ErrorBanner({ message }) {
 
 // ── Style helpers ───────────────────────────────────────────────────────────
 
-function labelStyle({ color = '#484848', spaced = false, muted = false } = {}) {
-  return {
-    margin: '0 0 8px',
-    fontSize: 11,
-    fontWeight: 700,
-    fontFamily: 'Inter, sans-serif',
-    color: muted ? 'rgba(199,153,255,0.35)' : color,
-    letterSpacing: spaced ? '0.18em' : '0',
-    textTransform: spaced ? 'uppercase' : 'none',
-  }
-}
-
 function bodyTextStyle(color = '#e7e5e5') {
   return { fontSize: 13, fontFamily: 'Inter, sans-serif', color, lineHeight: 1.6 }
 }

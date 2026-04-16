@@ -24,16 +24,6 @@ function shouldIncludePart(partIndex, totalParts, skipEvery = 1, skipOffset = 0,
   }
 }
 
-function getParts(question, skipEvery = 1, skipOffset = 0, endOnLast = false) {
-  const allParts = getAllParts(question)
-
-  if (skipEvery === 1) return allParts
-
-  // Apply skip pattern to parts (a, b, c, d, e...)
-  return allParts.filter((_, i) => shouldIncludePart(i, allParts.length, skipEvery, skipOffset, endOnLast))
-}
-
-
 export default function Session({ onReport }) {
   const location  = useLocation()
   const navigate  = useNavigate()
@@ -52,9 +42,9 @@ export default function Session({ onReport }) {
   return <SessionInner config={config} onReport={onReport} navigate={navigate} />
 }
 
-function AskGeminiButton({ onClick, isMobile }) {
+function AskGeminiButton({ onClick }) {
   return (
-    <button 
+    <button
       onClick={e => { e.stopPropagation(); onClick() }}
       style={{
         display: 'flex', alignItems: 'center', gap: 6,
@@ -68,10 +58,10 @@ function AskGeminiButton({ onClick, isMobile }) {
       onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(199,153,255,0.2)'}
     >
       <span style={{ fontSize: 12 }}>✨</span>
-      <span style={{ 
-        color: '#c799ff', 
-        fontSize: 10, 
-        fontWeight: 700, 
+      <span style={{
+        color: '#c799ff',
+        fontSize: 10,
+        fontWeight: 700,
         fontFamily: 'Space Grotesk, sans-serif',
         letterSpacing: '0.02em'
       }}>
@@ -253,10 +243,8 @@ function SessionInner({ config, onReport, navigate }) {
   const current    = questions[index]
   const currentMeta = questionList[index]
   const allParts = getAllParts(current)
-  const currentParts = getParts(current, skipEvery, skipOffset, endOnLast)
   const hasParts   = allParts.length > 0
   const activePart = hasParts ? allParts[subPartIndex] : null
-  const isActivePartIncluded = hasParts && shouldIncludePart(subPartIndex, allParts.length, skipEvery, skipOffset, endOnLast)
   const topicName  = topic.topic_name ?? topic.topic_code
   const progressPct = ((index + (phase === PHASE.ANSWER ? 1 : 0.5)) / questions.length) * 100
 
@@ -370,7 +358,7 @@ function SessionInner({ config, onReport, navigate }) {
                       />
                       {!hasParts && !geminiOpen && (
                         <div style={{ marginTop: 8 }}>
-                          <AskGeminiButton onClick={() => setGeminiOpen(true)} isMobile={isMobile} />
+                          <AskGeminiButton onClick={() => setGeminiOpen(true)} />
                         </div>
                       )}
                     </div>
@@ -413,7 +401,7 @@ function SessionInner({ config, onReport, navigate }) {
                       </div>
                       {!geminiOpen && (
                         <div style={{ marginTop: 4 }}>
-                          <AskGeminiButton onClick={() => setGeminiOpen(true)} isMobile={isMobile} />
+                          <AskGeminiButton onClick={() => setGeminiOpen(true)} />
                         </div>
                       )}
                     </div>

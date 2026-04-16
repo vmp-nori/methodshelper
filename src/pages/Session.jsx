@@ -42,6 +42,30 @@ export default function Session({ onReport }) {
   return <SessionInner config={config} onReport={onReport} navigate={navigate} />
 }
 
+function CopyLatexButton({ onClick }) {
+  return (
+    <button
+      onClick={e => { e.stopPropagation(); onClick() }}
+      title="Copy LaTeX"
+      style={{
+        width: 28, height: 28,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: '#1f2020', border: '1px solid rgba(72,72,72,0.2)',
+        borderRadius: 6, cursor: 'pointer',
+        color: '#9f9d9d', opacity: 0.5,
+        transition: 'all 0.15s', flexShrink: 0,
+      }}
+      onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(72,72,72,0.5)'; e.currentTarget.style.opacity = '1' }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(72,72,72,0.2)'; e.currentTarget.style.opacity = '0.5' }}
+    >
+      <svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="3.5" y="3.5" width="8" height="8" rx="1.2" stroke="currentColor" strokeWidth="1.2"/>
+        <path d="M2.5 8.5H2A1.5 1.5 0 0 1 .5 7V2A1.5 1.5 0 0 1 2 .5h5A1.5 1.5 0 0 1 8.5 2v.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+      </svg>
+    </button>
+  )
+}
+
 function AskGeminiButton({ onClick }) {
   return (
     <button
@@ -84,7 +108,15 @@ function SessionInner({ config, onReport, navigate }) {
   const [fadeKey, setFadeKey]           = useState(0)
   const [panelOpen, setPanelOpen]       = useState(false)
   const [geminiOpen, setGeminiOpen]     = useState(false)
+  const [latexCopied, setLatexCopied]   = useState(false)
   const isMobile = useIsMobile()
+
+  function copyLatex(text) {
+    navigator.clipboard.writeText(text).then(() => {
+      setLatexCopied(true)
+      setTimeout(() => setLatexCopied(false), 2000)
+    })
+  }
 
   useEffect(() => {
     const exFromStart = topic.exercises.slice(startExerciseIndex)
@@ -366,7 +398,7 @@ function SessionInner({ config, onReport, navigate }) {
                 </div>
               ) : (
                 <span style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: isMobile ? 20 : 26, fontWeight: 500, color: '#484848' }}>
-                  {index + 1}.
+                  {currentMeta?.number}.
                 </span>
               )}
             </div>
@@ -399,11 +431,15 @@ function SessionInner({ config, onReport, navigate }) {
                           <p style={{ color: '#484848', fontStyle: 'italic', fontSize: 13, margin: 0 }}>Question not indexed yet.</p>
                         )}
                       </div>
-                      {!geminiOpen && (
-                        <div style={{ marginTop: 4 }}>
+                      <div style={{ display: 'flex', flexDirection: 'row', gap: 6, flexShrink: 0, marginTop: 4 }}>
+                        {!geminiOpen && (
                           <AskGeminiButton onClick={() => setGeminiOpen(true)} />
-                        </div>
-                      )}
+                        )}
+                        <CopyLatexButton onClick={() => copyLatex(
+                          (current.question_text ? current.question_text + '\n\n' : '') +
+                          `(${activePart.label}) ${activePart.text ?? ''}`
+                        )} />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -576,6 +612,23 @@ function SessionInner({ config, onReport, navigate }) {
             onClose={() => setPanelOpen(false)}
           />
         </>
+      )}
+
+      {/* LaTeX copied toast */}
+      {latexCopied && (
+        <div style={{
+          position: 'fixed', bottom: 88, left: '50%', transform: 'translateX(-50%)',
+          background: '#1f2020', border: '1px solid rgba(72,72,72,0.3)',
+          borderRadius: 8, padding: '8px 18px',
+          color: '#e7e5e5', fontSize: 12, fontFamily: 'Inter, sans-serif',
+          letterSpacing: '0.02em',
+          zIndex: 9999, pointerEvents: 'none',
+          animation: 'fadeIn 0.2s ease',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+          whiteSpace: 'nowrap',
+        }}>
+          LaTeX copied
+        </div>
       )}
 
       <style>{`

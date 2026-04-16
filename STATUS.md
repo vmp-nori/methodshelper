@@ -23,11 +23,14 @@ Last updated: 2026-04-13
 - [ ] MM34, SM12, SM34 — no questions indexed yet
 
 ### Infrastructure
+- [x] Gemini Assistant — integrated Google Gemini Pro/Flash for live question help
+- [x] Settings page — allow users to store their own Gemini API key in `localStorage`
 - [x] Hosted on Vercel: https://supsmasher.vercel.app (alias) / https://methodshelper.vercel.app (canonical)
 - [x] Vercel env vars set: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
 - [x] `vercel.json` SPA rewrite (all paths → index.html)
 - [x] React Router v7 — URL updates with navigation, browser back/forward works
 - [x] Deep links and page refresh work (pages fetch data from Supabase using URL params)
+- [x] Answer merge script: `scripts/import_answers.py` (safely merges JSON answers into DB)
 
 ### UI/UX
 - [x] Bug report modal (floating ⚑ button, 6 issue types, submits via Supabase Edge Function)
@@ -45,7 +48,7 @@ Last updated: 2026-04-13
 ## Backlog (to be done)
 
 ### High priority
-- [ ] **Import MM12 answers** — re-run `import_questions.py` once answers are extracted from PDF. The upsert will update in place; no schema changes needed.
+- [ ] **Import MM12 answers** — run `scripts/import_answers.py` with `extracted_answers.json`.
 - [ ] **Deploy `send-bug-report` Supabase Edge Function** — `BugReportModal` calls `supabase.functions.invoke('send-bug-report')` but this function may not be deployed yet. Bug reports will silently fail until it is.
 - [ ] **Vercel alias automation** — currently `vercel alias set methodshelper.vercel.app supsmasher.vercel.app` must be re-run manually after every deploy. Set up Vercel Git integration or a proper custom domain to avoid this.
 
@@ -57,7 +60,7 @@ Last updated: 2026-04-13
 - [ ] **Connect GitHub repo to Vercel** — currently requires manual `vercel deploy`. Blocked by GitHub login connection in Vercel account settings.
 
 ### Low priority
-- [ ] **Answer extraction** — no script exists yet to extract answers from the PDF. Needs to be written (likely using the same Gemini Vision / Ollama approach as `index_textbook.py`).
+- [x] **Answer extraction** — Script `import_answers.py` created to merge LLM-generated JSON.
 - [ ] **Progress tracking** — no user accounts; sessions are stateless. Could add local-storage-based progress if needed.
 - [ ] **Touch gestures in Session** — swipe left/right could replace ←→ arrow keys on mobile. Currently mobile users tap the screen to advance (works via `onClick={advance}` on the outer div).
 

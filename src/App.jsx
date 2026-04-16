@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { Routes, Route, useLocation, useNavigate } from 'react-router-dom'
+import { Routes, Route, useLocation, useNavigate, Link } from 'react-router-dom'
 import TextbookSelect from './pages/TextbookSelect'
 import TopicSelect from './pages/TopicSelect'
 import Home from './pages/Home'
 import Session from './pages/Session'
+import Settings from './pages/Settings'
 import BugReportModal from './components/BugReportModal'
 import { useIsMobile } from './lib/hooks'
 
@@ -14,6 +15,7 @@ function Wordmark() {
 
   // Hidden on root — desktop pages now use this persistent wordmark too
   if (location.pathname === '/') return null
+  if (location.pathname === '/settings') return null
 
   // Best-effort subject name from navigation state
   const subject = location.state?.subject ?? location.state?.config?.subjectId ?? null
@@ -98,6 +100,7 @@ function SocialLink() {
   const location = useLocation()
   
   if (location.pathname === '/') return null
+  if (location.pathname === '/settings') return null
 
   return (
     <a
@@ -148,6 +151,7 @@ export default function App() {
   const [reportContext, setReportContext] = useState(null)
   const isMobile = useIsMobile()
   const location = useLocation()
+  const navigate = useNavigate()
 
   function openReport(ctx = null) {
     setReportContext(ctx)
@@ -155,12 +159,14 @@ export default function App() {
   }
 
   const isRoot = location.pathname === '/'
+  const isSettings = location.pathname === '/settings'
   const isSession = location.pathname.endsWith('/session')
 
   return (
     <>
       <Routes>
         <Route path="/"                                  element={<TextbookSelect />} />
+        <Route path="/settings"                          element={<Settings />} />
         <Route path="/:subjectCode"                      element={<TopicSelect />} />
         <Route path="/:subjectCode/:topicCode"           element={<Home />} />
         <Route path="/:subjectCode/:topicCode/session"   element={<Session onReport={openReport} />} />
@@ -173,7 +179,7 @@ export default function App() {
       <SocialLink />
 
       {/* Dark shield strip behind the wordmark so scrolling content doesn't bleed through */}
-      {!isRoot && !isSession && <div style={{
+      {!isRoot && !isSession && !isSettings && <div style={{
         position: 'fixed', top: 0, left: 0, right: 0,
         height: isMobile ? 64 : 80,
         background: '#0e0e0e',
@@ -181,39 +187,77 @@ export default function App() {
         pointerEvents: 'none',
       }} />}
 
-      {/* Floating report button */}
-      <button
-        onClick={() => openReport()}
-        title="Report an issue"
-        style={{
-          position: 'fixed', 
-          bottom: `calc(${isMobile ? '16px' : '24px'} + env(safe-area-inset-bottom))`, 
-          right: isMobile ? '16px' : '24px', 
-          zIndex: 900,
-          width: '36px', height: '36px',
-          background: '#131313',
-          border: '1px solid rgba(72,72,72,0.15)',
-          borderRadius: '50%',
-          cursor: 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: '#484848',
-          fontSize: '15px', lineHeight: 1,
-          transition: 'all 0.2s',
-          boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
-        }}
-        onMouseEnter={e => {
-          e.currentTarget.style.borderColor = 'rgba(199,153,255,0.3)'
-          e.currentTarget.style.color = '#c799ff'
-          e.currentTarget.style.background = '#1a1a1a'
-        }}
-        onMouseLeave={e => {
-          e.currentTarget.style.borderColor = 'rgba(72,72,72,0.15)'
-          e.currentTarget.style.color = '#484848'
-          e.currentTarget.style.background = '#131313'
-        }}
-      >
-        ⚑
-      </button>
+      {/* Floating utility buttons */}
+      <div style={{
+        position: 'fixed', 
+        bottom: `calc(${isMobile ? '16px' : '24px'} + env(safe-area-inset-bottom))`, 
+        right: isMobile ? '16px' : '24px', 
+        zIndex: 900,
+        display: 'flex',
+        gap: 12
+      }}>
+        {/* Settings Button */}
+        {!isSettings && (
+          <button
+            onClick={() => navigate('/settings')}
+            title="Settings"
+            style={{
+              width: '36px', height: '36px',
+              background: '#131313',
+              border: '1px solid rgba(72,72,72,0.15)',
+              borderRadius: '50%',
+              cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: '#484848',
+              fontSize: '18px', lineHeight: 1,
+              transition: 'all 0.2s',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.borderColor = 'rgba(199,153,255,0.3)'
+              e.currentTarget.style.color = '#c799ff'
+              e.currentTarget.style.background = '#1a1a1a'
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.borderColor = 'rgba(72,72,72,0.15)'
+              e.currentTarget.style.color = '#484848'
+              e.currentTarget.style.background = '#131313'
+            }}
+          >
+            ⚙
+          </button>
+        )}
+
+        {/* Floating report button */}
+        <button
+          onClick={() => openReport()}
+          title="Report an issue"
+          style={{
+            width: '36px', height: '36px',
+            background: '#131313',
+            border: '1px solid rgba(72,72,72,0.15)',
+            borderRadius: '50%',
+            cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: '#484848',
+            fontSize: '15px', lineHeight: 1,
+            transition: 'all 0.2s',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.borderColor = 'rgba(199,153,255,0.3)'
+            e.currentTarget.style.color = '#c799ff'
+            e.currentTarget.style.background = '#1a1a1a'
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.borderColor = 'rgba(72,72,72,0.15)'
+            e.currentTarget.style.color = '#484848'
+            e.currentTarget.style.background = '#131313'
+          }}
+        >
+          ⚑
+        </button>
+      </div>
 
       {reportOpen && (
         <BugReportModal
@@ -224,3 +268,4 @@ export default function App() {
     </>
   )
 }
+

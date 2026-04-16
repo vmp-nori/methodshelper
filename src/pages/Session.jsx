@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { MathText } from '../lib/math.jsx'
 import { buildQuestionList, fetchQuestionsForSession } from '../lib/questions'
 import { useIsMobile } from '../lib/hooks'
+import GeminiChat from '../components/GeminiChat'
 
 const PHASE = { QUESTION: 'q', ANSWER: 'a' }
 
@@ -51,6 +52,35 @@ export default function Session({ onReport }) {
   return <SessionInner config={config} onReport={onReport} navigate={navigate} />
 }
 
+function AskGeminiButton({ onClick, isMobile }) {
+  return (
+    <button 
+      onClick={e => { e.stopPropagation(); onClick() }}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 6,
+        background: '#131313', border: '1px solid rgba(199,153,255,0.2)',
+        borderRadius: 9999, padding: '4px 12px',
+        cursor: 'pointer',
+        transition: 'all 0.2s',
+        flexShrink: 0
+      }}
+      onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(199,153,255,0.4)'}
+      onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(199,153,255,0.2)'}
+    >
+      <span style={{ fontSize: 12 }}>✨</span>
+      <span style={{ 
+        color: '#c799ff', 
+        fontSize: 10, 
+        fontWeight: 700, 
+        fontFamily: 'Space Grotesk, sans-serif',
+        letterSpacing: '0.02em'
+      }}>
+        ASK GEMINI
+      </span>
+    </button>
+  )
+}
+
 function SessionInner({ config, onReport, navigate }) {
   const { topic, startExerciseIndex, skipEvery, skipOffset, endOnLast = false, subjectId } = config
 
@@ -63,6 +93,7 @@ function SessionInner({ config, onReport, navigate }) {
   const [error, setError]               = useState(null)
   const [fadeKey, setFadeKey]           = useState(0)
   const [panelOpen, setPanelOpen]       = useState(false)
+  const [geminiOpen, setGeminiOpen]     = useState(false)
   const isMobile = useIsMobile()
 
   useEffect(() => {
@@ -113,6 +144,7 @@ function SessionInner({ config, onReport, navigate }) {
       if (nextPartIndex !== -1) {
         setSubPartIndex(nextPartIndex)
         setPhase(PHASE.QUESTION)
+        setGeminiOpen(false)
       } else if (index + 1 < questions.length) {
         // No more parts match filter, move to next question
         const nextQuestion = questions[index + 1]
@@ -128,6 +160,7 @@ function SessionInner({ config, onReport, navigate }) {
         setSubPartIndex(firstMatchingPart)
         setPhase(PHASE.QUESTION)
         setFadeKey(k => k + 1)
+        setGeminiOpen(false)
       }
     } else if (index + 1 < questions.length) {
       const nextQuestion = questions[index + 1]
@@ -143,6 +176,7 @@ function SessionInner({ config, onReport, navigate }) {
       setSubPartIndex(firstMatchingPart)
       setPhase(PHASE.QUESTION)
       setFadeKey(k => k + 1)
+      setGeminiOpen(false)
     }
   }, [phase, index, subPartIndex, questions, skipEvery, skipOffset, endOnLast])
 
@@ -154,19 +188,20 @@ function SessionInner({ config, onReport, navigate }) {
         e.preventDefault()
         const allParts = getAllParts(questions[index])
         if (allParts.length > 0 && subPartIndex + 1 < allParts.length) {
-          setSubPartIndex(i => i + 1); setPhase(PHASE.QUESTION)
+          setSubPartIndex(i => i + 1); setPhase(PHASE.QUESTION); setGeminiOpen(false)
         } else if (index + 1 < questions.length) {
-          setIndex(i => i + 1); setSubPartIndex(0); setPhase(PHASE.QUESTION); setFadeKey(k => k + 1)
+          setIndex(i => i + 1); setSubPartIndex(0); setPhase(PHASE.QUESTION); setFadeKey(k => k + 1); setGeminiOpen(false)
         }
       } else if (e.code === 'ArrowLeft') {
         e.preventDefault()
         const allParts = getAllParts(questions[index])
         if (allParts.length > 0 && subPartIndex > 0) {
-          setSubPartIndex(i => i - 1); setPhase(PHASE.QUESTION)
+          setSubPartIndex(i => i - 1); setPhase(PHASE.QUESTION); setGeminiOpen(false)
         } else if (index > 0) {
-          setIndex(i => i - 1); setSubPartIndex(0); setPhase(PHASE.QUESTION); setFadeKey(k => k + 1)
+          setIndex(i => i - 1); setSubPartIndex(0); setPhase(PHASE.QUESTION); setFadeKey(k => k + 1); setGeminiOpen(false)
         }
-      } else if (e.code === 'ArrowDown') {
+      }
+ else if (e.code === 'ArrowDown') {
         e.preventDefault()
         const currentEx = questionList[index]?.exercise
         let nextIdx = -1
@@ -176,7 +211,7 @@ function SessionInner({ config, onReport, navigate }) {
           }
         }
         if (nextIdx !== -1) {
-          setIndex(nextIdx); setSubPartIndex(0); setPhase(PHASE.QUESTION); setFadeKey(k => k + 1)
+          setIndex(nextIdx); setSubPartIndex(0); setPhase(PHASE.QUESTION); setFadeKey(k => k + 1); setGeminiOpen(false)
         }
       } else if (e.code === 'ArrowUp') {
         e.preventDefault()
@@ -188,7 +223,7 @@ function SessionInner({ config, onReport, navigate }) {
         }
 
         if (index > firstOfCurrent) {
-          setIndex(firstOfCurrent); setSubPartIndex(0); setPhase(PHASE.QUESTION); setFadeKey(k => k + 1)
+          setIndex(firstOfCurrent); setSubPartIndex(0); setPhase(PHASE.QUESTION); setFadeKey(k => k + 1); setGeminiOpen(false)
         } else {
           let prevIdx = -1
           for (let i = index - 1; i >= 0; i--) {
@@ -202,7 +237,7 @@ function SessionInner({ config, onReport, navigate }) {
             }
           }
           if (prevIdx !== -1) {
-            setIndex(prevIdx); setSubPartIndex(0); setPhase(PHASE.QUESTION); setFadeKey(k => k + 1)
+            setIndex(prevIdx); setSubPartIndex(0); setPhase(PHASE.QUESTION); setFadeKey(k => k + 1); setGeminiOpen(false)
           }
         }
       } else if (e.code === 'Escape') navigate(-1)
@@ -228,7 +263,7 @@ function SessionInner({ config, onReport, navigate }) {
   return (
     <div
       style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', height: '100vh', background: '#0e0e0e', overflow: 'hidden' }}
-      onClick={advance}
+      onClick={geminiOpen ? undefined : advance}
     >
       {/* ── Main question area ── */}
       <section
@@ -285,10 +320,10 @@ function SessionInner({ config, onReport, navigate }) {
         </header>
 
         {/* Question content — split into two fixed halves so nothing shifts on reveal */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', maxWidth: 1200, width: '100%', alignSelf: 'center', overflow: 'hidden' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', maxWidth: 1200, width: '100%', alignSelf: 'center', overflowY: geminiOpen ? 'auto' : 'hidden' }}>
 
           {/* ── Upper half: question (anchored to bottom of this half) ── */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', paddingBottom: isMobile ? 20 : 28, paddingTop: isMobile ? 0 : 40 }}>
+          <div style={{ flex: geminiOpen ? '0 0 auto' : 1, display: 'flex', flexDirection: 'column', paddingBottom: isMobile ? 20 : 28, paddingTop: isMobile ? 0 : 40 }}>
 
             {/* Desktop-only breadcrumb moved from header */}
             {!isMobile && (
@@ -314,8 +349,8 @@ function SessionInner({ config, onReport, navigate }) {
               </div>
             )}
 
-            {/* Spacer — grows to push content to bottom */}
-            <div style={{ flex: 1 }} />
+            {/* Spacer — grows to push content to bottom (hidden in working-out mode) */}
+            {!geminiOpen && <div style={{ flex: 1 }} />}
 
             {/* Number + stem — positioned directly above sub-part card */}
             <div style={{ marginBottom: isMobile ? 12 : 16, marginTop: 0, flexShrink: 0 }}>
@@ -327,10 +362,19 @@ function SessionInner({ config, onReport, navigate }) {
                   }}>
                     {currentMeta?.number}.
                   </span>
-                  <MathText
-                    text={current.question_text}
-                    style={{ color: '#e7e5e5', fontSize: isMobile ? 20 : 26, fontWeight: 500, lineHeight: 1.5, fontFamily: 'Space Grotesk, sans-serif' }}
-                  />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
+                      <MathText
+                        text={current.question_text}
+                        style={{ color: '#e7e5e5', fontSize: isMobile ? 20 : 26, fontWeight: 500, lineHeight: 1.5, fontFamily: 'Space Grotesk, sans-serif' }}
+                      />
+                      {!hasParts && !geminiOpen && (
+                        <div style={{ marginTop: 8 }}>
+                          <AskGeminiButton onClick={() => setGeminiOpen(true)} isMobile={isMobile} />
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               ) : (
                 <span style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: isMobile ? 20 : 26, fontWeight: 500, color: '#484848' }}>
@@ -343,7 +387,7 @@ function SessionInner({ config, onReport, navigate }) {
             {hasParts && activePart && (
               <div style={{
                 background: '#171717', borderRadius: 12,
-                padding: isMobile ? '16px 20px' : '24px 28px',
+                padding: isMobile ? '16px 20px' : '20px 24px',
                 border: '1px solid rgba(72,72,72,0.12)',
                 flexShrink: 0,
                 marginTop: 0,
@@ -356,14 +400,23 @@ function SessionInner({ config, onReport, navigate }) {
                     {activePart.label})
                   </span>
                   <div style={{ flex: 1 }}>
-                    {activePart.text ? (
-                      <MathText
-                        text={activePart.text}
-                        style={{ color: '#e7e5e5', fontSize: isMobile ? 18 : 22, lineHeight: 1.6, fontFamily: 'Inter, sans-serif' }}
-                      />
-                    ) : (
-                      <p style={{ color: '#484848', fontStyle: 'italic', fontSize: 13, margin: 0 }}>Question not indexed yet.</p>
-                    )}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
+                      <div style={{ flex: 1 }}>
+                        {activePart.text ? (
+                          <MathText
+                            text={activePart.text}
+                            style={{ color: '#e7e5e5', fontSize: isMobile ? 18 : 22, lineHeight: 1.6, fontFamily: 'Inter, sans-serif' }}
+                          />
+                        ) : (
+                          <p style={{ color: '#484848', fontStyle: 'italic', fontSize: 13, margin: 0 }}>Question not indexed yet.</p>
+                        )}
+                      </div>
+                      {!geminiOpen && (
+                        <div style={{ marginTop: 4 }}>
+                          <AskGeminiButton onClick={() => setGeminiOpen(true)} isMobile={isMobile} />
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
                 {activePart.image && (
@@ -380,11 +433,21 @@ function SessionInner({ config, onReport, navigate }) {
             )}
           </div>
 
-          {/* Divider line — always present, acts as visual anchor */}
-          <div style={{ height: 1, background: 'rgba(72,72,72,0.08)', flexShrink: 0 }} />
+          {/* Inline working out — shown in place of the lower half */}
+          {geminiOpen && (
+            <GeminiChat
+              isOpen={geminiOpen}
+              questionText={current?.question_text}
+              partLabel={activePart?.label}
+              partText={activePart?.text}
+            />
+          )}
 
-          {/* ── Lower half: answer (anchored to top of this half) ── */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', paddingTop: isMobile ? 20 : 28 }}>
+          {/* Divider line — hidden in working-out mode */}
+          {!geminiOpen && <div style={{ height: 1, background: 'rgba(72,72,72,0.08)', flexShrink: 0 }} />}
+
+          {/* ── Lower half: answer (anchored to top of this half, hidden in working-out mode) ── */}
+          {!geminiOpen && <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', paddingTop: isMobile ? 20 : 28 }}>
             {phase === PHASE.ANSWER && (
               <div style={{ animation: 'answerReveal 0.35s cubic-bezier(0.16,1,0.3,1) both', position: 'relative' }}>
                 <div style={{
@@ -437,7 +500,7 @@ function SessionInner({ config, onReport, navigate }) {
                 </div>
               </div>
             )}
-          </div>
+          </div>}
 
         </div>
 
@@ -478,7 +541,7 @@ function SessionInner({ config, onReport, navigate }) {
             style={{
               display: 'flex', alignItems: 'center', gap: 10,
               background: '#131313', border: '1px solid rgba(72,72,72,0.2)',
-              borderRadius: 9999, padding: '8px 20px',
+              borderRadius: 9999, padding: isMobile ? '6px 14px' : '8px 20px',
               boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
               cursor: 'pointer'
             }}
@@ -491,7 +554,7 @@ function SessionInner({ config, onReport, navigate }) {
             }}>
               {isMobile ? 'NEXT' : 'SPACE'}
             </span>
-            <span style={{ color: '#9f9d9d', fontSize: 12, fontFamily: 'Inter, sans-serif' }}>
+            <span style={{ color: '#9f9d9d', fontSize: isMobile ? 10 : 12, fontFamily: 'Inter, sans-serif' }}>
               {phase === PHASE.QUESTION ? 'Reveal Answer' : 'Next Question'}
             </span>
           </div>
@@ -519,6 +582,7 @@ function SessionInner({ config, onReport, navigate }) {
             topicName={topicName}
             onJump={i => { 
               setIndex(i); setSubPartIndex(0); setPhase(PHASE.QUESTION); setFadeKey(k => k + 1);
+              setGeminiOpen(false);
               if (isMobile) setPanelOpen(false);
             }}
             onClose={() => setPanelOpen(false)}

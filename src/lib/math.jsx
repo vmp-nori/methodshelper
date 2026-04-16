@@ -17,7 +17,7 @@ export function parseAndRenderMath(text) {
 
   while ((match = pattern.exec(text)) !== null) {
     if (match.index > lastIndex) {
-      segments.push({ type: 'text', content: text.slice(lastIndex, match.index) })
+      segments.push({ type: 'text', content: text.slice(lastIndex, match.index).replace(/\\\$/g, '$') })
     }
     const raw = match[0]
     const isDisplay = raw.startsWith('$$')
@@ -36,7 +36,7 @@ export function parseAndRenderMath(text) {
   }
 
   if (lastIndex < text.length) {
-    segments.push({ type: 'text', content: text.slice(lastIndex) })
+    segments.push({ type: 'text', content: text.slice(lastIndex).replace(/\\\$/g, '$') })
   }
 
   return segments

@@ -77,36 +77,57 @@ export default function GeminiChat({ isOpen, questionText, partLabel, partText }
   const model = localStorage.getItem('gemini_model') || 'gemini-1.5-flash-8b'
   const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`
 
-  // ── Initial fetch — separated so cleanup can cancel the in-flight call ──
-  useEffect(() => {
-    if (!isOpen || !apiKey) return
-    let active = true
-
-    setMessages([])
-    setInput('')
+  // ── Initial fetch ──
+  const fetchInitial = async () => {
+    if (!apiKey) return
     setError(null)
     setLoading(true)
+    setMessages([])
+    
+    let attempt = 0
+    const maxRetries = 2
 
-    fetch(apiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: buildPrompt(questionText, partLabel, partText) }] }],
-        generationConfig: { temperature: 0.7, topK: 40, topP: 0.95, maxOutputTokens: 2048 },
-      }),
-    })
-      .then(r => r.json())
-      .then(data => {
-        if (!active) return
+    while (attempt <= maxRetries) {
+      try {
+        const res = await fetch(apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ role: 'user', parts: [{ text: buildPrompt(questionText, partLabel, partText) }] }],
+            generationConfig: { temperature: 0.7, topK: 40, topP: 0.95, maxOutputTokens: 2048 },
+          }),
+        })
+
+        if (res.status === 503) {
+          if (attempt < maxRetries) {
+            attempt++
+            await new Promise(r => setTimeout(r, 800 * attempt))
+            continue
+          }
+          throw new Error('API is currently overloaded (High Demand). Please try again.')
+        }
+        if (res.status === 429) throw new Error('Rate limit reached. Please wait a moment.')
+
+        const data = await res.json()
         if (data.error) throw new Error(data.error.message)
         const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response received.'
         setMessages([{ role: 'assistant', text: reply }])
-      })
-      .catch(err => { if (active) setError(err.message) })
-      .finally(() => { if (active) setLoading(false) })
+        break // Success
+      } catch (err) {
+        if (attempt >= maxRetries) {
+          setError(err.message)
+          break
+        }
+        attempt++
+        await new Promise(r => setTimeout(r, 800 * attempt))
+      } finally {
+        if (attempt >= maxRetries || messages.length > 0) setLoading(false)
+      }
+    }
+  }
 
-    // Cancels the state updates if the effect re-runs (StrictMode double-invoke, question change)
-    return () => { active = false }
+  useEffect(() => {
+    if (isOpen) fetchInitial()
   }, [isOpen, questionText, partLabel, partText])
 
   // ── Follow-up send ──
@@ -119,18 +140,35 @@ export default function GeminiChat({ isOpen, questionText, partLabel, partText }
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(apiUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: buildContents(messages, userText),
-          generationConfig: { temperature: 0.7, topK: 40, topP: 0.95, maxOutputTokens: 2048 },
-        }),
-      })
-      const data = await res.json()
-      if (data.error) throw new Error(data.error.message)
-      const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response received.'
-      setMessages(prev => [...prev, { role: 'assistant', text: reply }])
+      let attempt = 0
+      const maxRetries = 2
+      
+      while (attempt <= maxRetries) {
+        const res = await fetch(apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: buildContents(messages, userText),
+            generationConfig: { temperature: 0.7, topK: 40, topP: 0.95, maxOutputTokens: 2048 },
+          }),
+        })
+
+        if (res.status === 503) {
+          if (attempt < maxRetries) {
+            attempt++
+            await new Promise(r => setTimeout(r, 800 * attempt))
+            continue
+          }
+          throw new Error('API is currently overloaded (High Demand). Please try again.')
+        }
+        if (res.status === 429) throw new Error('Rate limit reached. Please wait a moment.')
+
+        const data = await res.json()
+        if (data.error) throw new Error(data.error.message)
+        const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response received.'
+        setMessages(prev => [...prev, { role: 'assistant', text: reply }])
+        break // Success
+      }
     } catch (err) {
       setError(err.message)
     } finally {
@@ -148,30 +186,14 @@ export default function GeminiChat({ isOpen, questionText, partLabel, partText }
   const followUps = firstUserIdx >= 0 ? messages.slice(firstUserIdx) : []
 
   return (
-    <div
-      style={{ marginTop: 32, paddingTop: 24, borderTop: '1px solid rgba(72,72,72,0.1)' }}
-      onClick={e => e.stopPropagation()}
-    >
-      {/* Section divider */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 4 }}>
-        <div style={{ flex: 1, height: 1, background: 'rgba(72,72,72,0.18)' }} />
-        <span style={{
-          fontSize: 10, fontWeight: 700, letterSpacing: '0.22em',
-          textTransform: 'uppercase', color: '#9f9d9d',
-          fontFamily: 'Inter, sans-serif', flexShrink: 0,
-        }}>
-          Working Out
-        </span>
-        <div style={{ flex: 1, height: 1, background: 'rgba(72,72,72,0.18)' }} />
-      </div>
-
+      <div style={{ marginTop: 12 }} onClick={e => e.stopPropagation()}>
       {!apiKey ? (
         <NoApiKey />
       ) : (
         <>
           {loading && !firstAI && <LoadingDots label="Generating working out" />}
           {firstAI && <StepList text={firstAI.text} />}
-          {error && <ErrorBanner message={error} />}
+          {error && <ErrorBanner message={error} onRetry={messages.length === 0 ? fetchInitial : sendFollowUp} />}
 
           {/* Follow-up thread (user + AI pairs, starts after first user message) */}
           {followUps.length > 0 && (
@@ -198,7 +220,7 @@ export default function GeminiChat({ isOpen, questionText, partLabel, partText }
           )}
 
           {/* Follow-up input */}
-          <div style={{ marginTop: 24, display: 'flex', gap: 10 }}>
+          <div style={{ marginTop: 24, display: 'flex', flexWrap: 'wrap', gap: 10 }}>
             <input
               value={input}
               onChange={e => setInput(e.target.value)}
@@ -218,6 +240,7 @@ export default function GeminiChat({ isOpen, questionText, partLabel, partText }
                 fontSize: 14,
                 fontFamily: 'Inter, sans-serif',
                 outline: 'none',
+                minWidth: '200px'
               }}
             />
             <button
@@ -376,15 +399,32 @@ function NoApiKey() {
   )
 }
 
-function ErrorBanner({ message }) {
+function ErrorBanner({ message, onRetry }) {
   return (
     <div style={{
-      marginTop: 16, padding: '10px 14px',
+      marginTop: 16, padding: '12px 16px',
       background: 'rgba(239,68,68,0.1)',
-      borderRadius: 8, color: '#ef4444',
+      borderRadius: 10, border: '1px solid rgba(239,68,68,0.2)',
+      color: '#ef4444',
       fontSize: 13, fontFamily: 'Inter, sans-serif',
+      display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-start'
     }}>
-      {message}
+      <p style={{ margin: 0 }}>{message}</p>
+      {onRetry && (
+        <button
+          onClick={onRetry}
+          style={{
+            padding: '6px 12px', background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.2)',
+            borderRadius: 6, color: '#ef4444', fontSize: 11, fontWeight: 700,
+            cursor: 'pointer', fontFamily: 'Inter, sans-serif',
+            transition: 'background 0.15s',
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.25)'}
+          onMouseLeave={e => e.currentTarget.style.background = 'rgba(239,68,68,0.15)'}
+        >
+          Retry
+        </button>
+      )}
     </div>
   )
 }

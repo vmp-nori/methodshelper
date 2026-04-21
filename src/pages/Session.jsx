@@ -8,8 +8,54 @@ import GeminiChat from '../components/GeminiChat'
 const PHASE = { QUESTION: 'q', ANSWER: 'a' }
 
 function getAllParts(question) {
-  if (!question?.parts || Object.keys(question.parts).length === 0) return []
-  return Object.keys(question.parts).sort().map(k => ({ label: k, ...question.parts[k] }))
+  if (!question) return []
+  
+  const results = []
+
+  function processParts(partsObj, parentLabel = '', parentText = '') {
+    if (!partsObj) return
+    
+    // Sort keys (a, b, c... or i, ii, iii...)
+    const keys = Object.keys(partsObj).sort((a, b) => {
+      // Basic alphanumeric sort
+      return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
+    })
+
+    for (const key of keys) {
+      const part = partsObj[key]
+      const currentLabel = parentLabel ? `${parentLabel} ${key}` : key
+      // Prepend parent text if it exists
+      const currentText = parentText ? `${parentText}\n${part.text || ''}` : (part.text || '')
+      
+      if (part.subparts && Object.keys(part.subparts).length > 0) {
+        // If it has subparts, we recursively add them
+        // We pass the current part's text as a prefix for context
+        processParts(part.subparts, currentLabel, currentText)
+      } else {
+        // It's a leaf part
+        results.push({
+          label: currentLabel,
+          ...part,
+          text: currentText // Use the prepended text
+        })
+      }
+    }
+  }
+
+  if (!question.parts || Object.keys(question.parts).length === 0) {
+    if (question.question_text || question.answer_text) {
+      results.push({
+        label: 'a',
+        text: question.question_text,
+        answer: question.answer_text,
+        isArtificial: true
+      })
+    }
+  } else {
+    processParts(question.parts)
+  }
+
+  return results
 }
 
 function shouldIncludePart(partIndex, totalParts, skipEvery = 1, skipOffset = 0, endOnLast = false) {
@@ -340,7 +386,7 @@ function SessionInner({ config, onReport, navigate }) {
         </header>
 
         {/* Question content — split into two fixed halves so nothing shifts on reveal */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', maxWidth: 1200, width: '100%', alignSelf: 'center', overflowY: geminiOpen ? 'auto' : 'hidden' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', maxWidth: 1200, width: '100%', alignSelf: 'center', overflow: geminiOpen ? 'auto' : 'visible' }}>
 
           {/* ── Upper half: question (anchored to bottom of this half) ── */}
           <div style={{ flex: geminiOpen ? '0 0 auto' : 1, display: 'flex', flexDirection: 'column', paddingBottom: isMobile ? 20 : 28, paddingTop: isMobile ? 0 : 40 }}>
@@ -374,7 +420,7 @@ function SessionInner({ config, onReport, navigate }) {
 
             {/* Number + stem — positioned directly above sub-part card */}
             <div style={{ marginBottom: isMobile ? 12 : 16, marginTop: 0, flexShrink: 0 }}>
-              {current?.question_text ? (
+              {current?.question_text && !activePart?.isArtificial ? (
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: isMobile ? 12 : 16 }}>
                   <span style={{
                     fontFamily: 'Space Grotesk, sans-serif', fontSize: isMobile ? 20 : 26, fontWeight: 500,
@@ -388,11 +434,7 @@ function SessionInner({ config, onReport, navigate }) {
                         text={current.question_text}
                         style={{ color: '#e7e5e5', fontSize: isMobile ? 20 : 26, fontWeight: 500, lineHeight: 1.5, fontFamily: 'Space Grotesk, sans-serif' }}
                       />
-                      {!hasParts && !geminiOpen && (
-                        <div style={{ marginTop: 8 }}>
-                          <AskGeminiButton onClick={() => setGeminiOpen(true)} />
-                        </div>
-                      )}
+                      {/* Ask Gemini button removed from here; it now shows in the sub-part card even for artificial parts */}
                     </div>
                   </div>
                 </div>
@@ -415,12 +457,12 @@ function SessionInner({ config, onReport, navigate }) {
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
                   <span style={{
                     fontFamily: 'Space Grotesk, sans-serif', fontSize: isMobile ? 18 : 22,
-                    color: '#c799ff', fontWeight: 300, flexShrink: 0, lineHeight: 1, height: isMobile ? 26 : 32,
+                    color: '#c799ff', fontWeight: 300, flexShrink: 0,
                   }}>
                     {activePart.label})
                   </span>
                   <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
                       <div style={{ flex: 1 }}>
                         {activePart.text ? (
                           <MathText
@@ -428,7 +470,11 @@ function SessionInner({ config, onReport, navigate }) {
                             style={{ color: '#e7e5e5', fontSize: isMobile ? 18 : 22, lineHeight: 1.6, fontFamily: 'Inter, sans-serif' }}
                           />
                         ) : (
-                          <p style={{ color: '#484848', fontStyle: 'italic', fontSize: 13, margin: 0 }}>Question not indexed yet.</p>
+                          <div style={{ padding: '4px 0' }}>
+                            <p style={{ color: '#484848', fontStyle: 'italic', fontSize: 13, margin: 0, lineHeight: 1.6, textAlign: 'left', fontFamily: 'Inter, sans-serif' }}>
+                              Question not yet indexed. Graphs will not be shown.
+                            </p>
+                          </div>
                         )}
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'row', gap: 6, flexShrink: 0, marginTop: 4 }}>
@@ -436,32 +482,26 @@ function SessionInner({ config, onReport, navigate }) {
                           <AskGeminiButton onClick={() => setGeminiOpen(true)} />
                         )}
                         <CopyLatexButton onClick={() => copyLatex(
-                          (current.question_text ? current.question_text + '\n\n' : '') +
-                          `(${activePart.label}) ${activePart.text ?? ''}`
+                          activePart.isArtificial 
+                            ? `(a) ${activePart.text ?? ''}`
+                            : (current.question_text ? current.question_text + '\n\n' : '') + `(${activePart.label}) ${activePart.text ?? ''}`
                         )} />
                       </div>
                     </div>
                   </div>
                 </div>
-                {activePart.image && (
-                  <img src={activePart.image} alt="Diagram"
-                    style={{ maxWidth: '100%', maxHeight: isMobile ? 180 : 220, borderRadius: 8, marginTop: 16 }} />
-                )}
+                {/* Image rendering removed */}
               </div>
             )}
 
-            {/* Non-parts diagram */}
-            {!hasParts && current?.question_image && (
-              <img src={current.question_image} alt="Diagram"
-                style={{ maxWidth: '100%', maxHeight: isMobile ? 180 : 220, borderRadius: 8, marginTop: 16, flexShrink: 0 }} />
-            )}
+            {/* Non-parts diagram removed */}
           </div>
 
           {/* Inline working out — shown in place of the lower half */}
           {geminiOpen && (
             <GeminiChat
               isOpen={geminiOpen}
-              questionText={current?.question_text}
+              questionText={activePart?.isArtificial ? null : current?.question_text}
               partLabel={activePart?.label}
               partText={activePart?.text}
             />
@@ -474,6 +514,15 @@ function SessionInner({ config, onReport, navigate }) {
           {!geminiOpen && <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', paddingTop: isMobile ? 20 : 28 }}>
             {phase === PHASE.ANSWER && (
               <div style={{ animation: 'answerReveal 0.35s cubic-bezier(0.16,1,0.3,1) both', position: 'relative' }}>
+                <div style={{ marginBottom: 10, paddingLeft: 4 }}>
+                  <span style={{
+                    fontSize: 11, fontWeight: 700, letterSpacing: '0.18em',
+                    textTransform: 'uppercase', color: '#c799ff',
+                    fontFamily: 'Space Grotesk, sans-serif',
+                  }}>
+                    answer
+                  </span>
+                </div>
                 <div style={{
                   position: 'relative',
                   background: '#131313', borderRadius: 12,
@@ -481,44 +530,49 @@ function SessionInner({ config, onReport, navigate }) {
                   border: '1px solid rgba(199, 153, 255, 0.15)',
                   animation: 'borderGlow 0.8s ease 0.1s both',
                 }}>
-                  <div style={{ marginBottom: 10 }}>
-                    <span style={{
-                      fontSize: 9, letterSpacing: '0.25em', textTransform: 'uppercase',
-                      color: 'rgba(199,153,255,0.35)', fontWeight: 700,
-                      fontFamily: 'Inter, sans-serif',
-                    }}>
-                      {hasParts ? `answer — ${activePart?.label})` : 'answer'}
-                    </span>
-                  </div>
                   {hasParts && activePart ? (
-                    <>
-                      {activePart.answer ? (
-                        <MathText
-                          text={activePart.answer}
-                          style={{ color: '#c799ff', fontSize: isMobile ? 18 : 20, lineHeight: 1.8, whiteSpace: 'pre-wrap', fontFamily: 'Inter, sans-serif' }}
-                        />
-                      ) : (
-                        <p style={{ color: '#484848', fontStyle: 'italic', fontSize: 13, margin: 0 }}>Answer not indexed yet.</p>
-                      )}
-                      {activePart.answer_image && (
-                        <img src={activePart.answer_image} alt="Answer diagram"
-                          style={{ maxWidth: '100%', borderRadius: 8, marginTop: 16 }} />
-                      )}
-                    </>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                      <span style={{
+                        fontFamily: 'Space Grotesk, sans-serif', fontSize: isMobile ? 18 : 22,
+                        color: '#c799ff', fontWeight: 300, flexShrink: 0,
+                      }}>
+                        {activePart.label})
+                      </span>
+                      <div style={{ flex: 1 }}>
+                        {(activePart.answer && !activePart.answer.toLowerCase().includes('graph shown')) ? (
+                          <>
+                            {activePart.answer && !activePart.answer.toLowerCase().includes('graph shown') && (
+                              <MathText
+                                text={activePart.answer}
+                                style={{ color: '#c799ff', fontSize: isMobile ? 18 : 20, lineHeight: 1.8, whiteSpace: 'pre-wrap', fontFamily: 'Inter, sans-serif' }}
+                              />
+                            )}
+                          </>
+                        ) : (
+                          <div style={{ padding: '4px 0' }}>
+                            <p style={{ color: '#484848', fontStyle: 'italic', fontSize: 13, margin: 0, lineHeight: 1.8, textAlign: 'left', fontFamily: 'Inter, sans-serif' }}>
+                              Answer not yet indexed. Graphs will not be shown.
+                            </p>
+                          </div>
+                        )}
+                        {/* Answer image removed */}
+                      </div>
+                    </div>
                   ) : (
                     <>
-                      {current?.answer_text ? (
+                      {(current?.answer_text && !current.answer_text.toLowerCase().includes('graph shown')) ? (
                         <MathText
                           text={current.answer_text}
                           style={{ color: '#c799ff', fontSize: isMobile ? 18 : 20, lineHeight: 1.8, whiteSpace: 'pre-wrap', fontFamily: 'Inter, sans-serif' }}
                         />
                       ) : (
-                        <p style={{ color: '#484848', fontStyle: 'italic', fontSize: 13, margin: 0 }}>Answer not indexed yet.</p>
+                        <div style={{ padding: '4px 0' }}>
+                          <p style={{ color: '#484848', fontStyle: 'italic', fontSize: 13, margin: 0, lineHeight: 1.8, textAlign: 'left', fontFamily: 'Inter, sans-serif' }}>
+                            Answer not yet indexed
+                          </p>
+                        </div>
                       )}
-                      {current?.answer_image && (
-                        <img src={current.answer_image} alt="Answer diagram"
-                          style={{ maxWidth: '100%', borderRadius: 8, marginTop: 16 }} />
-                      )}
+                      {/* Global answer image removed */}
                     </>
                   )}
                 </div>
@@ -637,9 +691,9 @@ function SessionInner({ config, onReport, navigate }) {
           to   { opacity: 1; transform: translateY(0); }
         }
         @keyframes borderGlow {
-          0%   { border-color: rgba(199,153,255,0.1); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-          50%  { border-color: rgba(199,153,255,0.4); box-shadow: 0 12px 30px rgba(0,0,0,0.4), 0 0 20px rgba(199,153,255,0.12); }
-          100% { border-color: rgba(199,153,255,0.25); box-shadow: 0 8px 24px rgba(0,0,0,0.3), 0 0 12px rgba(199,153,255,0.06); }
+          0%   { border-color: rgba(199,153,255,0.1); box-shadow: 0 4px 12px rgba(0,0,0,0.1), 0 0 10px rgba(199,153,255,0); }
+          50%  { border-color: rgba(199,153,255,0.4); box-shadow: 0 10px 40px rgba(0,0,0,0.45), 0 0 45px rgba(199,153,255,0.22); }
+          100% { border-color: rgba(199,153,255,0.25); box-shadow: 0 8px 16px rgba(0,0,0,0.3), 0 0 25px rgba(199,153,255,0.12); }
         }
         @keyframes fadeIn {
           from { opacity: 0; }

@@ -19,6 +19,7 @@ dist-ssr
 .claude/
 .gemini/
 11METHODS/
+_local/
 scripts/__pycache__/
 *.csv
 
@@ -34,7 +35,5 @@ scripts/__pycache__/
 *.sw?
 
 Methods 1&2.pdf
-scripts/create_bucket.py
-scripts/import_questions.py
 stitch.json
 .vercel

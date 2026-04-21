@@ -20,14 +20,18 @@ Last updated: 2026-04-16
 
 ### Data
 - [x] MM12: 1,117 questions across 128 exercises (1A–10F) imported into Supabase
+- [x] MM34: Enabled and ready for import via `scripts/import_questions.py`
 - [x] SUP data (topic → exercise mappings) migrated from nori.study for MM12
-- [x] MM12 answers — 554/1,000 extracted and imported via `scripts/import_answers.py`
-  - **Chapters complete (100%):** 1, 10, 11
-  - **Chapters near-complete (~95-99%):** 2–6 (only 4-5 questions missing across all)
-  - **Chapters missing (0%):** 7, 13, 14, 16–18, 20–21
-  - **Overall coverage:** 55.4% of available questions in chapters 1–6, 9–11
-- [x] LaTeX rendering fixed (773 answers wrapped with $...$ delimiters, all validation passed)
-- [ ] MM34, SM12, SM34 — no questions indexed yet
+- [x] Image support removed from frontend and import scripts by design
+- [x] MM12 answers — 1,053 questions extracted into methods12answers.json
+  - **Chapters complete (100%):** 1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 13, 14, 16, 17, 18, 20, 21
+  - **Overall coverage:** ~94% (1,053 of ~1,117 questions)
+- [x] LaTeX rendering fixed (all validation passed)
+- [x] MM34: ~1,100 questions indexed and answers extracted
+  - **Coverage:** ~90% (Some diagram/range questions skipped during stem indexing)
+- [x] SM12: ~1,000 questions indexed and answers extracted
+  - **Coverage:** ~85% (Some sections skipped due to source image/stem availability)
+- [ ] SM34 — no questions indexed yet
 
 ### Infrastructure
 - [x] Gemini Assistant — integrated Google Gemini Pro/Flash for step-by-step working via "Ask Gemini" button
@@ -58,15 +62,16 @@ Last updated: 2026-04-16
 ### High priority
 - [x] ~~**Import MM12 answers**~~ — Completed. 554 questions imported via `scripts/import_answers.py` (chapters 1–6, 9–11).
 - [ ] **Fill remaining gaps in chapters 2–6** — 4–5 missing questions per chapter (range questions excluded by design).
-- [ ] **Extract chapters 7, 13–21 answers** — 431 questions still need extraction from PDF/Gemini.
+- [x] ~~**Extract chapters 7, 13–21 answers**~~ — Completed (1,053 answers total).
+- [ ] **Import extracted answers into Supabase** — Use `scripts/import_answers.py` to upload `methods12answers.json`.
 - [ ] **Test Gemini AI working-out feature** — Users with API key in Settings should see step-by-step solutions in Session.
 - [ ] **Deploy `send-bug-report` Supabase Edge Function** — `BugReportModal` calls `supabase.functions.invoke('send-bug-report')` but this function may not be deployed yet. Bug reports will silently fail until it is.
 - [ ] **Vercel alias automation** — currently `vercel alias set methodshelper.vercel.app supsmasher.vercel.app` must be re-run manually after every deploy. Set up Vercel Git integration or a proper custom domain to avoid this.
 
 ### Medium priority
-- [ ] **Index MM34 textbook** — run `index_textbook.py` + `import_questions.py` for MM34. Enable the MM34 card on TextbookSelect (currently disabled — `TOPIC_COUNTS` only has `MM12`).
-- [ ] **Index SM12 / SM34 textbooks** — same process.
-- [ ] **Migrate SUP data for MM34/SM12/SM34** — run `migrate_sups.py` (currently only MM12 data in `sup_data`).
+- [x] Index MM34 textbook — `scripts/import_questions.py` created and card enabled.
+- [ ] Index SM12 / SM34 textbooks — same process.
+- [ ] Migrate SUP data for MM34/SM34 — run `migrate_sups.py` (currently only MM12, SM12 data in `sup_data`).
 - [ ] **Custom domain** — `supsmasher.com` is available for ~$11.25/yr via Vercel. Would replace the manual alias approach.
 - [ ] **Connect GitHub repo to Vercel** — currently requires manual `vercel deploy`. Blocked by GitHub login connection in Vercel account settings.
 

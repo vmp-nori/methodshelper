@@ -21,12 +21,12 @@ vercel alias set methodshelper.vercel.app supsmasher.vercel.app
 Python scripts (run locally, not in cloud):
 ```bash
 SUPABASE_SERVICE_KEY=<service-role key> \
-python scripts/import_questions.py --input /path/to/output.json --subject MM12
+python _local/scripts/import_questions.py --input /path/to/output.json --subject MM12
 
 SOURCE_SERVICE_KEY=<nori.study key> DEST_SERVICE_KEY=<SUPsmasher key> \
-python scripts/migrate_sups.py
+python _local/scripts/migrate_sups.py
 
-python scripts/index_textbook.py --subject MM12 --pdf "path/to/Methods 1&2.pdf"
+python _local/scripts/index_textbook.py --subject MM12 --pdf "path/to/Methods 1&2.pdf"
 ```
 
 ## Architecture

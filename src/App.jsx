@@ -99,7 +99,6 @@ function SocialLink() {
   const isMobile = useIsMobile()
   const location = useLocation()
   
-  if (location.pathname === '/') return null
   if (location.pathname === '/settings') return null
 
   return (
@@ -189,13 +188,48 @@ export default function App() {
 
       {/* Floating utility buttons */}
       <div style={{
-        position: 'fixed', 
-        bottom: `calc(${isMobile ? '16px' : '24px'} + env(safe-area-inset-bottom))`, 
-        right: isMobile ? '16px' : '24px', 
-        zIndex: 900,
+        position: 'fixed',
+        top: isMobile ? 10 : 20,
+        right: isMobile ? '16px' : '24px',
+        zIndex: 960,
         display: 'flex',
-        gap: 12
+        gap: 8
       }}>
+        {/* Floating report button */}
+        <button
+          onClick={() => openReport()}
+          title="Report an issue"
+          style={{
+            height: '36px',
+            padding: '0 14px',
+            background: '#131313',
+            border: '1px solid rgba(72,72,72,0.15)',
+            borderRadius: '9999px',
+            cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 6,
+            color: '#9f9d9d',
+            fontSize: '12px', fontFamily: 'Inter, sans-serif', fontWeight: 500,
+            letterSpacing: '0.01em',
+            lineHeight: 1,
+            transition: 'all 0.2s',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+            whiteSpace: 'nowrap',
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.borderColor = 'rgba(199,153,255,0.3)'
+            e.currentTarget.style.color = '#c799ff'
+            e.currentTarget.style.background = '#1a1a1a'
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.borderColor = 'rgba(72,72,72,0.15)'
+            e.currentTarget.style.color = '#9f9d9d'
+            e.currentTarget.style.background = '#131313'
+          }}
+        >
+          <span style={{ fontSize: 13 }}>⚑</span>
+          Bug report
+        </button>
+
         {/* Settings Button */}
         {!isSettings && (
           <button
@@ -227,36 +261,6 @@ export default function App() {
             ⚙
           </button>
         )}
-
-        {/* Floating report button */}
-        <button
-          onClick={() => openReport()}
-          title="Report an issue"
-          style={{
-            width: '36px', height: '36px',
-            background: '#131313',
-            border: '1px solid rgba(72,72,72,0.15)',
-            borderRadius: '50%',
-            cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: '#484848',
-            fontSize: '15px', lineHeight: 1,
-            transition: 'all 0.2s',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
-          }}
-          onMouseEnter={e => {
-            e.currentTarget.style.borderColor = 'rgba(199,153,255,0.3)'
-            e.currentTarget.style.color = '#c799ff'
-            e.currentTarget.style.background = '#1a1a1a'
-          }}
-          onMouseLeave={e => {
-            e.currentTarget.style.borderColor = 'rgba(72,72,72,0.15)'
-            e.currentTarget.style.color = '#484848'
-            e.currentTarget.style.background = '#131313'
-          }}
-        >
-          ⚑
-        </button>
       </div>
 
       {reportOpen && (

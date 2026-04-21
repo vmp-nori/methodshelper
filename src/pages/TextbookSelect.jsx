@@ -38,7 +38,7 @@ const SUBJECT_META = {
   },
 }
 
-const TOPIC_COUNTS = { 'MM12': 11 }
+const TOPIC_COUNTS = { 'MM12': 11, 'MM34': 14, 'SM12': 14, 'SM34': 0 }
 
 export default function TextbookSelect() {
   const navigate = useNavigate()
@@ -55,15 +55,20 @@ export default function TextbookSelect() {
       .finally(() => setLoading(false))
   }, [])
 
+  const features = [
+    'A more efficient way to do your SUP.',
+    'Content taken directly from the 2026 SUP.',
+    'Questions taken directly from textbooks.',
+    'Will be updated yearly!',
+  ]
+
   return (
     <div style={{ height: '100vh', background: '#0e0e0e', color: '#e7e5e5', overflowX: 'hidden', display: 'flex', flexDirection: 'column' }}>
 
       {/* Header */}
       <header style={{
-        display: 'flex',
-        alignItems: 'center',
+        display: 'flex', alignItems: 'center',
         padding: isMobile ? '20px 24px' : '20px 56px',
-        background: 'transparent',
         flexShrink: 0,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -74,174 +79,124 @@ export default function TextbookSelect() {
             borderRadius: 9,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontFamily: 'serif', fontSize: 15, fontWeight: 700, color: '#c799ff',
-          }}>
-            Σ
-          </div>
+          }}>Σ</div>
           <div style={{ display: 'flex', flexDirection: 'column', height: 32, justifyContent: 'space-between', padding: '2px 0' }}>
-            <span style={{
-              fontFamily: '"Space Grotesk", sans-serif',
-              fontSize: 16, fontWeight: 800,
-              color: '#e7e5e5', letterSpacing: '-0.03em',
-              lineHeight: 1,
-            }}>
-              SUPsmasher
-            </span>
-            <div style={{ marginLeft: -2, display: 'flex', alignItems: 'center' }}>
-              <span style={{
-                background: 'rgba(199,153,255,0.1)', color: '#c799ff',
-                padding: '2px 5px', borderRadius: 4,
-                fontSize: 8, fontWeight: 800, letterSpacing: '0.05em',
-                fontFamily: 'Inter, sans-serif',
-                lineHeight: 1,
-              }}>
-                BETA
-              </span>
+            <span style={{ fontFamily: '"Space Grotesk", sans-serif', fontSize: 16, fontWeight: 800, color: '#e7e5e5', letterSpacing: '-0.03em', lineHeight: 1 }}>SUPsmasher</span>
+            <div style={{ marginLeft: -2 }}>
+              <span style={{ background: 'rgba(199,153,255,0.1)', color: '#c799ff', padding: '2px 5px', borderRadius: 4, fontSize: 8, fontWeight: 800, letterSpacing: '0.05em', fontFamily: 'Inter, sans-serif', lineHeight: 1 }}>BETA</span>
             </div>
           </div>
         </div>
       </header>
 
       {/* Main */}
-      <main style={{ 
-        padding: isMobile ? '24px 24px 32px' : '24px 56px 32px', 
-        maxWidth: 1300, 
-        margin: '0 auto', 
-        width: '100%', 
-        flex: 1, 
-        display: 'flex', 
-        flexDirection: 'column', 
-        justifyContent: 'center', 
-        paddingBottom: isMobile ? '8vh' : '16vh' 
+      <main style={{
+        flex: 1,
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        padding: isMobile ? '24px 24px 32px' : '0 56px',
+        overflow: 'auto',
       }}>
+        <div style={{ width: '100%', maxWidth: 900 }}>
 
-        {/* Hero */}
-        <section style={{ marginBottom: 36 }}>
-          <span style={{
-            display: 'block', marginBottom: 16,
-            fontFamily: '"Space Grotesk", sans-serif',
-            fontSize: 11, fontWeight: 700, letterSpacing: '0.2em',
-            textTransform: 'uppercase', color: '#c799ff',
-          }}>
-            JMSS mathematics
-          </span>
-          <h1 style={{
-            fontFamily: '"Space Grotesk", sans-serif',
-            fontSize: isMobile ? '36px' : 'clamp(48px, 6vw, 80px)',
-            fontWeight: 900, letterSpacing: '-0.04em',
-            lineHeight: 1.0, color: '#e7e5e5',
-            margin: 0,
-          }}>
-            What's your textbook?
-          </h1>
-        </section>
+          {/* Hero */}
+          <section style={{ marginBottom: 28 }}>
+            <span style={{
+              display: 'block', marginBottom: 14,
+              fontFamily: '"Space Grotesk", sans-serif',
+              fontSize: 11, fontWeight: 700, letterSpacing: '0.2em',
+              textTransform: 'uppercase', color: '#c799ff',
+            }}>
+              JMSS mathematics
+            </span>
+            <h1 style={{
+              fontFamily: '"Space Grotesk", sans-serif',
+              fontSize: isMobile ? '36px' : 'clamp(48px, 6vw, 80px)',
+              fontWeight: 900, letterSpacing: '-0.04em',
+              lineHeight: 1.0, color: '#e7e5e5', margin: 0,
+            }}>
+              What's your textbook?
+            </h1>
+          </section>
 
-        {/* Cards grid */}
-        {loading ? (
-          <p style={{ color: '#484848', fontSize: 14 }}>Loading…</p>
-        ) : error ? (
-          <p style={{ color: '#ee7d77', fontSize: 13 }}>{error}</p>
-        ) : (
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
-            gap: 20,
-          }}>
-            {subjects.map(subject => {
-              const meta    = SUBJECT_META[subject.code] ?? SUBJECT_META['MM34']
-              const hasData = Boolean(TOPIC_COUNTS[subject.code])
-              const isHov   = hovered === subject.code
+          {/* Feature pills */}
+          {!isMobile && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 32 }}>
+              {features.map((f, i) => (
+                <span key={i} style={{
+                  display: 'flex', alignItems: 'center', gap: 7,
+                  padding: '6px 12px',
+                  background: '#131313',
+                  border: '1px solid rgba(72,72,72,0.12)',
+                  borderRadius: 9999,
+                  fontFamily: 'Inter, sans-serif',
+                  fontSize: 12, color: '#9f9d9d',
+                  lineHeight: 1,
+                }}>
+                  <span style={{ width: 4, height: 4, borderRadius: '50%', background: '#c799ff', flexShrink: 0 }} />
+                  {f}
+                </span>
+              ))}
+            </div>
+          )}
 
-              return (
-                <button
-                  key={subject.id}
-                  disabled={!hasData}
-                  onClick={() => hasData && navigate(`/${subject.code}`, { state: { subject } })}
-                  onMouseEnter={() => hasData && setHovered(subject.code)}
-                  onMouseLeave={() => setHovered(null)}
-                  style={{
-                    position: 'relative',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'flex-start',
-                    textAlign: 'left',
-                    padding: isMobile ? '24px' : '28px 32px',
-                    background: isHov ? '#1f2020' : '#131313',
-                    borderRadius: 16,
-                    border: `1px solid ${isHov ? 'rgba(72,72,72,0.25)' : 'rgba(72,72,72,0.1)'}`,
-                    cursor: hasData ? 'pointer' : 'default',
-                    opacity: hasData ? 1 : 0.35,
-                    transition: 'background 0.5s cubic-bezier(0.4,0,0.2,1), border-color 0.5s cubic-bezier(0.4,0,0.2,1), box-shadow 0.5s cubic-bezier(0.4,0,0.2,1)',
-                    boxShadow: isHov ? `0 12px 40px rgba(0,0,0,0.4), 0 0 20px ${meta.glowHover}` : 'none',
-                    overflow: 'hidden',
-                  }}
-                >
-                  {/* Volume label */}
-                  <span style={{
-                    fontFamily: '"Space Grotesk", sans-serif',
-                    fontSize: 11, fontWeight: 600,
-                    textTransform: 'uppercase', letterSpacing: '0.18em',
-                    color: '#484848', marginBottom: 20,
-                    position: 'relative',
-                  }}>
-                    {meta.volume}
-                  </span>
+          {/* Cards grid */}
+          {loading ? (
+            <p style={{ color: '#484848', fontSize: 14 }}>Loading…</p>
+          ) : error ? (
+            <p style={{ color: '#ee7d77', fontSize: 13 }}>{error}</p>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16 }}>
+              {subjects.map(subject => {
+                const meta    = SUBJECT_META[subject.code] ?? SUBJECT_META['MM34']
+                const hasData = Boolean(TOPIC_COUNTS[subject.code])
+                const isHov   = hovered === subject.code
 
-                  {/* Name */}
-                  <h3 style={{
-                    fontFamily: '"Space Grotesk", sans-serif',
-                    fontSize: isMobile ? 24 : 30, fontWeight: 700,
-                    letterSpacing: '-0.03em', lineHeight: 1.05,
-                    color: '#e7e5e5', margin: '0 0 10px',
-                    position: 'relative',
-                  }}>
-                    {meta.label ?? subject.name}
-                  </h3>
-
-                  {/* Description */}
-                  <p style={{
-                    fontSize: 14, color: '#767575',
-                    fontWeight: 400, lineHeight: 1.6,
-                    margin: 0, maxWidth: isMobile ? '100%' : 260,
-                    position: 'relative',
-                  }}>
-                    {hasData ? meta.description : 'Coming soon.'}
-                  </p>
-
-                  {/* CTA */}
-                  <div style={{
-                    display: 'flex', alignItems: 'center', gap: 12,
-                    marginTop: 'auto', paddingTop: 20,
-                    position: 'relative',
-                  }}>
-                    <div style={{
-                      width: 40, height: 40, borderRadius: '50%',
-                      background: isHov ? meta.accentColor : '#1f2020',
-                      border: isHov ? 'none' : '1px solid #252626',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      transition: 'background 0.4s cubic-bezier(0.4,0,0.2,1)',
-                      flexShrink: 0,
-                    }}>
-                      <span style={{
-                        fontSize: 16, lineHeight: 1,
-                        color: isHov ? '#0e0e0e' : '#767575',
-                        transition: 'color 0.4s cubic-bezier(0.4,0,0.2,1)',
-                      }}>→</span>
-                    </div>
-                    <span style={{
-                      fontFamily: '"Space Grotesk", sans-serif',
-                      fontSize: 11, fontWeight: 700,
-                      textTransform: 'uppercase', letterSpacing: '0.14em',
-                      color: isHov ? '#e7e5e5' : '#484848',
-                      transition: 'color 0.4s cubic-bezier(0.4,0,0.2,1)',
-                    }}>
-                      {hasData ? 'Enter Module' : 'Coming soon'}
+                return (
+                  <button
+                    key={subject.id}
+                    disabled={!hasData}
+                    onClick={() => hasData && navigate(`/${subject.code}`, { state: { subject } })}
+                    onMouseEnter={() => hasData && setHovered(subject.code)}
+                    onMouseLeave={() => setHovered(null)}
+                    style={{
+                      position: 'relative',
+                      display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
+                      textAlign: 'left',
+                      padding: isMobile ? '24px' : '28px 32px',
+                      background: isHov ? '#1f2020' : '#131313',
+                      borderRadius: 16,
+                      border: `1px solid ${isHov ? 'rgba(72,72,72,0.25)' : 'rgba(72,72,72,0.1)'}`,
+                      cursor: hasData ? 'pointer' : 'default',
+                      opacity: hasData ? 1 : 0.35,
+                      transition: 'background 0.5s cubic-bezier(0.4,0,0.2,1), border-color 0.5s cubic-bezier(0.4,0,0.2,1), box-shadow 0.5s cubic-bezier(0.4,0,0.2,1)',
+                      boxShadow: isHov ? `0 12px 40px rgba(0,0,0,0.4), 0 0 20px ${meta.glowHover}` : 'none',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <span style={{ fontFamily: '"Space Grotesk", sans-serif', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.18em', color: '#484848', marginBottom: 20, position: 'relative' }}>
+                      {meta.volume}
                     </span>
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-        )}
+                    <h3 style={{ fontFamily: '"Space Grotesk", sans-serif', fontSize: isMobile ? 24 : 30, fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.05, color: '#e7e5e5', margin: '0 0 10px', position: 'relative' }}>
+                      {meta.label ?? subject.name}
+                    </h3>
+                    <p style={{ fontSize: 14, color: '#767575', fontWeight: 400, lineHeight: 1.6, margin: 0, maxWidth: isMobile ? '100%' : 260, position: 'relative' }}>
+                      {hasData ? meta.description : 'Coming soon.'}
+                    </p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 'auto', paddingTop: 20, position: 'relative' }}>
+                      <div style={{ width: 40, height: 40, borderRadius: '50%', background: isHov ? meta.accentColor : '#1f2020', border: isHov ? 'none' : '1px solid #252626', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.4s cubic-bezier(0.4,0,0.2,1)', flexShrink: 0 }}>
+                        <span style={{ fontSize: 16, lineHeight: 1, color: isHov ? '#0e0e0e' : '#767575', transition: 'color 0.4s cubic-bezier(0.4,0,0.2,1)' }}>→</span>
+                      </div>
+                      <span style={{ fontFamily: '"Space Grotesk", sans-serif', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.14em', color: isHov ? '#e7e5e5' : '#484848', transition: 'color 0.4s cubic-bezier(0.4,0,0.2,1)' }}>
+                        {hasData ? 'Enter Module' : 'Coming soon'}
+                      </span>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
       </main>
 
     </div>

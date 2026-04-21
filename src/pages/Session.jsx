@@ -539,9 +539,9 @@ function SessionInner({ config, onReport, navigate }) {
                         {activePart.label})
                       </span>
                       <div style={{ flex: 1 }}>
-                        {(activePart.answer && !activePart.answer.toLowerCase().includes('graph shown')) ? (
+                        {(activePart.answer && !activePart.answer.toLowerCase().includes('graph shown') && activePart.answer.trim().toLowerCase() !== 'graph') ? (
                           <>
-                            {activePart.answer && !activePart.answer.toLowerCase().includes('graph shown') && (
+                            {activePart.answer && !activePart.answer.toLowerCase().includes('graph shown') && activePart.answer.trim().toLowerCase() !== 'graph' && (
                               <MathText
                                 text={activePart.answer}
                                 style={{ color: '#c799ff', fontSize: isMobile ? 18 : 20, lineHeight: 1.8, whiteSpace: 'pre-wrap', fontFamily: 'Inter, sans-serif' }}
@@ -560,7 +560,7 @@ function SessionInner({ config, onReport, navigate }) {
                     </div>
                   ) : (
                     <>
-                      {(current?.answer_text && !current.answer_text.toLowerCase().includes('graph shown')) ? (
+                      {(current?.answer_text && !current.answer_text.toLowerCase().includes('graph shown') && current.answer_text.trim().toLowerCase() !== 'graph') ? (
                         <MathText
                           text={current.answer_text}
                           style={{ color: '#c799ff', fontSize: isMobile ? 18 : 20, lineHeight: 1.8, whiteSpace: 'pre-wrap', fontFamily: 'Inter, sans-serif' }}
@@ -568,7 +568,7 @@ function SessionInner({ config, onReport, navigate }) {
                       ) : (
                         <div style={{ padding: '4px 0' }}>
                           <p style={{ color: '#484848', fontStyle: 'italic', fontSize: 13, margin: 0, lineHeight: 1.8, textAlign: 'left', fontFamily: 'Inter, sans-serif' }}>
-                            Answer not yet indexed
+                            Answer not yet indexed. Graphs will not be shown.
                           </p>
                         </div>
                       )}

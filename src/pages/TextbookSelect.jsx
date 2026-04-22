@@ -38,7 +38,7 @@ const SUBJECT_META = {
   },
 }
 
-const TOPIC_COUNTS = { 'MM12': 11, 'MM34': 14, 'SM12': 14, 'SM34': 0 }
+const TOPIC_COUNTS = { 'MM12': 11, 'MM34': 14, 'SM12': 0, 'SM34': 0 }
 
 export default function TextbookSelect() {
   const navigate = useNavigate()

@@ -3,6 +3,7 @@ dist
 .claude
 11METHODS
 scripts
+_local
 *.pdf
 *.csv
 *.py

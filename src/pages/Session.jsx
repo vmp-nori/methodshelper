@@ -254,59 +254,114 @@ function SessionInner({ config, onReport, navigate }) {
         e.preventDefault(); advance()
       } else if (e.code === 'ArrowRight') {
         e.preventDefault()
-        const allParts = getAllParts(questions[index])
-        if (allParts.length > 0 && subPartIndex + 1 < allParts.length) {
-          setSubPartIndex(i => i + 1); setPhase(PHASE.QUESTION); setGeminiOpen(false)
-        } else if (index + 1 < questions.length) {
-          setIndex(i => i + 1); setSubPartIndex(0); setPhase(PHASE.QUESTION); setFadeKey(k => k + 1); setGeminiOpen(false)
+        if (phase === PHASE.QUESTION) {
+          setPhase(PHASE.ANSWER); setGeminiOpen(false)
+        } else if (phase === PHASE.ANSWER) {
+          const allParts = getAllParts(questions[index])
+          if (allParts.length > 0 && subPartIndex + 1 < allParts.length) {
+            let nextPartIndex = -1
+            for (let i = subPartIndex + 1; i < allParts.length; i++) {
+              if (shouldIncludePart(i, allParts.length, skipEvery, skipOffset, endOnLast)) {
+                nextPartIndex = i
+                break
+              }
+            }
+            if (nextPartIndex !== -1) {
+              setSubPartIndex(nextPartIndex); setPhase(PHASE.QUESTION); setGeminiOpen(false)
+            } else if (index + 1 < questions.length) {
+              const nextQuestion = questions[index + 1]
+              const nextAllParts = getAllParts(nextQuestion)
+              let firstMatchingPart = 0
+              for (let i = 0; i < nextAllParts.length; i++) {
+                if (shouldIncludePart(i, nextAllParts.length, skipEvery, skipOffset, endOnLast)) {
+                  firstMatchingPart = i
+                  break
+                }
+              }
+              setIndex(i => i + 1); setSubPartIndex(firstMatchingPart); setPhase(PHASE.QUESTION); setFadeKey(k => k + 1); setGeminiOpen(false)
+            }
+          } else if (index + 1 < questions.length) {
+            const nextQuestion = questions[index + 1]
+            const nextAllParts = getAllParts(nextQuestion)
+            let firstMatchingPart = 0
+            for (let i = 0; i < nextAllParts.length; i++) {
+              if (shouldIncludePart(i, nextAllParts.length, skipEvery, skipOffset, endOnLast)) {
+                firstMatchingPart = i
+                break
+              }
+            }
+            setIndex(i => i + 1); setSubPartIndex(firstMatchingPart); setPhase(PHASE.QUESTION); setFadeKey(k => k + 1); setGeminiOpen(false)
+          }
         }
       } else if (e.code === 'ArrowLeft') {
         e.preventDefault()
-        const allParts = getAllParts(questions[index])
-        if (allParts.length > 0 && subPartIndex > 0) {
-          setSubPartIndex(i => i - 1); setPhase(PHASE.QUESTION); setGeminiOpen(false)
-        } else if (index > 0) {
-          setIndex(i => i - 1); setSubPartIndex(0); setPhase(PHASE.QUESTION); setFadeKey(k => k + 1); setGeminiOpen(false)
+        if (phase === PHASE.ANSWER) {
+          setPhase(PHASE.QUESTION); setGeminiOpen(false)
+        } else if (phase === PHASE.QUESTION) {
+          const allParts = getAllParts(questions[index])
+          if (allParts.length > 0 && subPartIndex > 0) {
+            let prevPartIndex = -1
+            for (let i = subPartIndex - 1; i >= 0; i--) {
+              if (shouldIncludePart(i, allParts.length, skipEvery, skipOffset, endOnLast)) {
+                prevPartIndex = i
+                break
+              }
+            }
+            if (prevPartIndex !== -1) {
+              setSubPartIndex(prevPartIndex); setPhase(PHASE.ANSWER); setGeminiOpen(false)
+            } else if (index > 0) {
+              const prevQuestion = questions[index - 1]
+              const prevAllParts = getAllParts(prevQuestion)
+              let lastMatchingPart = -1
+              for (let i = prevAllParts.length - 1; i >= 0; i--) {
+                if (shouldIncludePart(i, prevAllParts.length, skipEvery, skipOffset, endOnLast)) {
+                  lastMatchingPart = i
+                  break
+                }
+              }
+              setIndex(i => i - 1); setSubPartIndex(lastMatchingPart !== -1 ? lastMatchingPart : 0); setPhase(PHASE.ANSWER); setFadeKey(k => k + 1); setGeminiOpen(false)
+            }
+          } else if (index > 0) {
+            const prevQuestion = questions[index - 1]
+            const prevAllParts = getAllParts(prevQuestion)
+            let lastMatchingPart = -1
+            for (let i = prevAllParts.length - 1; i >= 0; i--) {
+              if (shouldIncludePart(i, prevAllParts.length, skipEvery, skipOffset, endOnLast)) {
+                lastMatchingPart = i
+                break
+              }
+            }
+            setIndex(i => i - 1); setSubPartIndex(lastMatchingPart !== -1 ? lastMatchingPart : 0); setPhase(PHASE.ANSWER); setFadeKey(k => k + 1); setGeminiOpen(false)
+          }
         }
       }
  else if (e.code === 'ArrowDown') {
         e.preventDefault()
-        const currentEx = questionList[index]?.exercise
-        let nextIdx = -1
-        for (let i = index + 1; i < questionList.length; i++) {
-          if (questionList[i].exercise !== currentEx) {
-            nextIdx = i; break
-          }
-        }
-        if (nextIdx !== -1) {
-          setIndex(nextIdx); setSubPartIndex(0); setPhase(PHASE.QUESTION); setFadeKey(k => k + 1); setGeminiOpen(false)
-        }
-      } else if (e.code === 'ArrowUp') {
-        e.preventDefault()
-        const currentEx = questionList[index]?.exercise
-        let firstOfCurrent = index
-        for (let i = index; i >= 0; i--) {
-          if (questionList[i].exercise === currentEx) firstOfCurrent = i
-          else break
-        }
-
-        if (index > firstOfCurrent) {
-          setIndex(firstOfCurrent); setSubPartIndex(0); setPhase(PHASE.QUESTION); setFadeKey(k => k + 1); setGeminiOpen(false)
-        } else {
-          let prevIdx = -1
-          for (let i = index - 1; i >= 0; i--) {
-            if (questionList[i].exercise !== currentEx) {
-              const prevExLabel = questionList[i].exercise
-              for (let j = i; j >= 0; j--) {
-                if (questionList[j].exercise === prevExLabel) prevIdx = j
-                else break
-              }
+        if (index + 1 < questions.length) {
+          const nextQuestion = questions[index + 1]
+          const nextAllParts = getAllParts(nextQuestion)
+          let firstMatchingPart = 0
+          for (let i = 0; i < nextAllParts.length; i++) {
+            if (shouldIncludePart(i, nextAllParts.length, skipEvery, skipOffset, endOnLast)) {
+              firstMatchingPart = i
               break
             }
           }
-          if (prevIdx !== -1) {
-            setIndex(prevIdx); setSubPartIndex(0); setPhase(PHASE.QUESTION); setFadeKey(k => k + 1); setGeminiOpen(false)
+          setIndex(i => i + 1); setSubPartIndex(firstMatchingPart); setPhase(PHASE.QUESTION); setFadeKey(k => k + 1); setGeminiOpen(false)
+        }
+      } else if (e.code === 'ArrowUp') {
+        e.preventDefault()
+        if (index > 0) {
+          const prevQuestion = questions[index - 1]
+          const prevAllParts = getAllParts(prevQuestion)
+          let firstMatchingPart = 0
+          for (let i = 0; i < prevAllParts.length; i++) {
+            if (shouldIncludePart(i, prevAllParts.length, skipEvery, skipOffset, endOnLast)) {
+              firstMatchingPart = i
+              break
+            }
           }
+          setIndex(i => i - 1); setSubPartIndex(firstMatchingPart); setPhase(PHASE.QUESTION); setFadeKey(k => k + 1); setGeminiOpen(false)
         }
       } else if (e.code === 'Escape') navigate(-1)
     }
@@ -329,7 +384,6 @@ function SessionInner({ config, onReport, navigate }) {
   return (
     <div
       style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', height: '100vh', background: '#0e0e0e', overflow: 'hidden' }}
-      onClick={geminiOpen ? undefined : advance}
     >
       {/* ── Main question area ── */}
       <section
@@ -600,28 +654,33 @@ function SessionInner({ config, onReport, navigate }) {
                 const isActive = shouldIncludePart(i, allParts.length, skipEvery, skipOffset, endOnLast)
                 const isCurrent = i === subPartIndex
                 return (
-                  <div key={p.label} style={{
-                    height: isCurrent ? 8 : (isActive ? 6 : 4),
-                    width: isCurrent ? 40 : (isActive ? 24 : 10),
-                    borderRadius: 3,
-                    background: isCurrent ? '#c799ff' : (isActive ? 'rgba(199,153,255,0.6)' : '#252626'),
-                    transition: 'all 0.2s ease',
-                    opacity: isCurrent ? 1 : (isActive ? 1 : 0.5),
-                  }} />
+                  <button
+                    key={p.label}
+                    onClick={() => { setSubPartIndex(i); setPhase(PHASE.QUESTION); setGeminiOpen(false) }}
+                    style={{
+                      height: isCurrent ? 8 : (isActive ? 6 : 4),
+                      width: isCurrent ? 40 : (isActive ? 24 : 10),
+                      borderRadius: 3,
+                      background: (isCurrent && isActive) ? '#c799ff' : (isActive ? 'rgba(199,153,255,0.6)' : '#252626'),
+                      transition: 'all 0.2s ease',
+                      opacity: isActive ? 1 : 0.5,
+                      border: 'none',
+                      cursor: 'pointer',
+                      padding: 0,
+                    }}
+                  />
                 )
               })}
             </div>
           )}
 
-          {/* Keyboard hint pill / Next button */}
-          <div 
-            onClick={advance}
+          {/* Keyboard hint pill */}
+          <div
             style={{
               display: 'flex', alignItems: 'center', gap: 10,
               background: '#131313', border: '1px solid rgba(72,72,72,0.2)',
               borderRadius: 9999, padding: isMobile ? '6px 14px' : '8px 20px',
               boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-              cursor: 'pointer'
             }}
           >
             <span style={{
@@ -658,8 +717,17 @@ function SessionInner({ config, onReport, navigate }) {
             phase={phase}
             progressPct={progressPct}
             topicName={topicName}
-            onJump={i => { 
-              setIndex(i); setSubPartIndex(0); setPhase(PHASE.QUESTION); setFadeKey(k => k + 1);
+            onJump={i => {
+              const targetQuestion = questions[i]
+              const targetParts = getAllParts(targetQuestion)
+              let firstMatchingPart = 0
+              for (let j = 0; j < targetParts.length; j++) {
+                if (shouldIncludePart(j, targetParts.length, skipEvery, skipOffset, endOnLast)) {
+                  firstMatchingPart = j
+                  break
+                }
+              }
+              setIndex(i); setSubPartIndex(firstMatchingPart); setPhase(PHASE.QUESTION); setFadeKey(k => k + 1);
               setGeminiOpen(false);
               if (isMobile) setPanelOpen(false);
             }}

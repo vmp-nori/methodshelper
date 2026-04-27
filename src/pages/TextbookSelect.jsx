@@ -46,6 +46,7 @@ export default function TextbookSelect() {
   const [hovered, setHovered]   = useState(null)
   const [loading, setLoading]   = useState(true)
   const [error, setError]       = useState(null)
+  const [showUpdate, setShowUpdate] = useState(true)
   const isMobile = useIsMobile()
 
   useEffect(() => {
@@ -198,6 +199,150 @@ export default function TextbookSelect() {
           )}
         </div>
       </main>
+
+      {/* Update popup */}
+      {showUpdate && (
+        <>
+          <div
+            onClick={() => setShowUpdate(false)}
+            style={{
+              position: 'fixed', inset: 0, zIndex: 999,
+              background: 'rgba(0,0,0,0.6)',
+              backdropFilter: 'blur(6px)',
+              animation: 'fadeIn 0.2s ease',
+            }}
+          />
+          <div
+            style={{
+              position: 'fixed', inset: 0, zIndex: 1000,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: '24px',
+              pointerEvents: 'none',
+            }}
+          >
+            <div
+              style={{
+                width: '100%', maxWidth: '480px',
+                background: '#131313',
+                borderRadius: '14px',
+                border: '1px solid rgba(72,72,72,0.15)',
+                boxShadow: '0 24px 80px rgba(0,0,0,0.6)',
+                overflow: 'hidden',
+                pointerEvents: 'auto',
+                animation: 'modalIn 0.25s cubic-bezier(0.16,1,0.3,1)',
+              }}
+            >
+              {/* Header */}
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '24px 24px 20px',
+                borderBottom: '1px solid rgba(72,72,72,0.08)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '18px', lineHeight: 1 }}>✨</span>
+                  <h2 style={{
+                    margin: 0, fontSize: '15px', fontWeight: '600',
+                    color: '#e7e5e5', fontFamily: 'Space Grotesk, sans-serif',
+                    letterSpacing: '-0.01em',
+                  }}>
+                    Update v1.01!
+                  </h2>
+                </div>
+                <button
+                  onClick={() => setShowUpdate(false)}
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    color: '#484848', fontSize: '18px', lineHeight: 1, padding: '2px',
+                    transition: 'color 0.15s',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.color = '#9f9d9d'}
+                  onMouseLeave={e => e.currentTarget.style.color = '#484848'}
+                >
+                  ×
+                </button>
+              </div>
+
+              {/* Content */}
+              <div style={{ padding: '24px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                    <span style={{ color: '#c799ff', fontSize: '14px', flexShrink: 0, lineHeight: 1.4 }}>•</span>
+                    <span style={{ fontSize: '13px', color: '#e7e5e5', fontFamily: 'Inter, sans-serif', lineHeight: 1.6 }}>
+                      Removed exercise selector — always start from the first exercise
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                    <span style={{ color: '#c799ff', fontSize: '14px', flexShrink: 0, lineHeight: 1.4 }}>•</span>
+                    <span style={{ fontSize: '13px', color: '#e7e5e5', fontFamily: 'Inter, sans-serif', lineHeight: 1.6 }}>
+                      Removed progress bar from session setup
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                    <span style={{ color: '#c799ff', fontSize: '14px', flexShrink: 0, lineHeight: 1.4 }}>•</span>
+                    <span style={{ fontSize: '13px', color: '#e7e5e5', fontFamily: 'Inter, sans-serif', lineHeight: 1.6 }}>
+                      Only spacebar advances questions — clicking the screen no longer works
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                    <span style={{ color: '#c799ff', fontSize: '14px', flexShrink: 0, lineHeight: 1.4 }}>•</span>
+                    <span style={{ fontSize: '13px', color: '#e7e5e5', fontFamily: 'Inter, sans-serif', lineHeight: 1.6 }}>
+                      Arrow keys now navigate through answers with filter respect
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                    <span style={{ color: '#c799ff', fontSize: '14px', flexShrink: 0, lineHeight: 1.4 }}>•</span>
+                    <span style={{ fontSize: '13px', color: '#e7e5e5', fontFamily: 'Inter, sans-serif', lineHeight: 1.6 }}>
+                      Question panel jumps respect your filter (e.g., Every other)
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                    <span style={{ color: '#c799ff', fontSize: '14px', flexShrink: 0, lineHeight: 1.4 }}>•</span>
+                    <span style={{ fontSize: '13px', color: '#e7e5e5', fontFamily: 'Inter, sans-serif', lineHeight: 1.6 }}>
+                      Sub-part progress dots are now clickable
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                    <span style={{ color: '#c799ff', fontSize: '14px', flexShrink: 0, lineHeight: 1.4 }}>•</span>
+                    <span style={{ fontSize: '13px', color: '#e7e5e5', fontFamily: 'Inter, sans-serif', lineHeight: 1.6 }}>
+                      Grey dots expand when selected but stay grey
+                    </span>
+                  </div>
+                </div>
+
+                {/* Close button */}
+                <button
+                  onClick={() => setShowUpdate(false)}
+                  style={{
+                    width: '100%', height: '44px',
+                    borderRadius: '9999px',
+                    background: '#c799ff',
+                    color: '#0e0e0e',
+                    border: 'none',
+                    fontFamily: 'Space Grotesk, sans-serif',
+                    fontWeight: '700', fontSize: '13px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
+                  onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                >
+                  Got it
+                </button>
+              </div>
+            </div>
+          </div>
+          <style>{`
+            @keyframes fadeIn {
+              from { opacity: 0; }
+              to { opacity: 1; }
+            }
+            @keyframes modalIn {
+              from { opacity: 0; transform: translateY(12px) scale(0.98); }
+              to { opacity: 1; transform: translateY(0) scale(1); }
+            }
+          `}</style>
+        </>
+      )}
 
     </div>
   )
